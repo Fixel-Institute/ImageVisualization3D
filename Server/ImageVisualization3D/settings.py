@@ -11,10 +11,11 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
@@ -24,9 +25,18 @@ SECRET_KEY = 'django-insecure-tl5e@040*#5gb2$h)^lnm@o*^d=%s%^^i^)frd@%juh2+6l&ob
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+if DEBUG:
+    STATIC_URL = '/static/'
+    SECURE_SSL_REDIRECT = False
+    SECURE_PROXY_SSL_HEADER = ()
+else:
+    BASE_URL = 'https://' + os.environ.get('SERVER_ADDRESS')
+    STATIC_URL = BASE_URL + '/static/'
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-ALLOWED_HOSTS = []
-
+CSRF_TRUSTED_ORIGINS = ["http://localhost:3000"]
+ALLOWED_HOSTS = ['localhost', os.environ.get('SERVER_ADDRESS')]
 
 # Application definition
 
@@ -37,9 +47,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'ImageServer'
 ]
 
 MIDDLEWARE = [
+    'django.middleware.gzip.GZipMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -83,6 +95,7 @@ DATABASES = {
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
+AUTH_USER_MODEL = "ImageServer.PlatformUser"
 
 AUTH_PASSWORD_VALIDATORS = [
     {

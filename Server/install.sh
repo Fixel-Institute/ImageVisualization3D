@@ -1,0 +1,1 @@
+pip3 install django djangorestframework numpy scipy pandas
