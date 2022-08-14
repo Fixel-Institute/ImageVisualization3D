@@ -11,7 +11,8 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ["SERVER_ADDRESS"] = "https://visualization.jcagle.solutions"
+os.environ["SERVER_ADDRESS"] = "visualization.jcagle.solutions"
+os.environ["SECRET_KEY"] = ""
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ImageVisualization3D.settings')
 
 application = get_wsgi_application()

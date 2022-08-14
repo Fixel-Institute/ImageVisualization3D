@@ -21,10 +21,10 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-tl5e@040*#5gb2$h)^lnm@o*^d=%s%^^i^)frd@%juh2+6l&ob'
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 if DEBUG:
     STATIC_URL = '/static/'
     SECURE_SSL_REDIRECT = False
@@ -32,7 +32,7 @@ if DEBUG:
 else:
     BASE_URL = 'https://' + os.environ.get('SERVER_ADDRESS')
     STATIC_URL = BASE_URL + '/static/'
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = False
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 CSRF_TRUSTED_ORIGINS = ["http://localhost:3000"]

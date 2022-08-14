@@ -2,6 +2,7 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+from ImageVisualization3D import asgi
 
 def main():
     """Run administrative tasks."""
@@ -19,14 +20,12 @@ def main():
 
 if __name__ == '__main__':
     if sys.argv[1] == "AdminAccount":
-        from ImageVisualization3D import wsgi
         from ImageServer import models
         user = models.PlatformUser.objects.create_user(email=sys.argv[2], password=sys.argv[3])
         user.is_admin = True
         user.save()
         
     elif sys.argv[1] == "StandardAccount":
-        from ImageVisualization3D import wsgi
         from ImageServer import models
         user = models.PlatformUser.objects.create_user(email=sys.argv[2], password=sys.argv[3])
         user.is_admin = False
