@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useNavigate } from "react-router-dom";
 
 import {
   AppBar,
@@ -16,11 +16,10 @@ import SceneRenderer from "views/SceneRenderer.js";
 
 import { useVisualizerContext } from "context";
 
-import 'assets/css/stats.css';
 import { Stats } from "@react-three/drei";
 
 const ImageViewerLayout = () => {
-
+  const navigate = useNavigate();
   const [context, dispatch] = useVisualizerContext();
   const { darkMode, server } = context;
 
@@ -47,8 +46,8 @@ const ImageViewerLayout = () => {
           </IconButton>
         </Box>
         <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-          <Button sx={{ color: '#fff' }}>
-            {"Change Server"}
+          <Button sx={{ color: '#fff' }} onClick={() => navigate("/auth", {replace: true}) }>
+            {"Change Server / Account"}
           </Button>
         </Box>
       </Toolbar>

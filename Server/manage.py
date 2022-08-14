@@ -3,7 +3,6 @@
 import os
 import sys
 
-
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ImageVisualization3D.settings')
@@ -19,4 +18,19 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if sys.argv[1] == "AdminAccount":
+        from ImageVisualization3D import wsgi
+        from ImageServer import models
+        user = models.PlatformUser.objects.create_user(email=sys.argv[2], password=sys.argv[3])
+        user.is_admin = True
+        user.save()
+        
+    elif sys.argv[1] == "StandardAccount":
+        from ImageVisualization3D import wsgi
+        from ImageServer import models
+        user = models.PlatformUser.objects.create_user(email=sys.argv[2], password=sys.argv[3])
+        user.is_admin = False
+        user.save()
+        
+    else:
+        main()

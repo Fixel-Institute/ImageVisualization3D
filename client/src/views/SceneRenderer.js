@@ -9,6 +9,7 @@ import {
   Drawer,
   Fab,
   Fade,
+  FormControl,
   Grid,
   List,
   ListItem,
@@ -16,9 +17,12 @@ import {
   ListItemIcon,
   ListItemText,
   Modal,
+  MenuItem,
   Stack,
   Slider,
   IconButton,
+  InputLabel,
+  Select,
   Typography,
   Icon,
   Popover
@@ -27,11 +31,11 @@ import {
 import { BlockPicker } from "react-color";
 
 import SettingIcon from "@mui/icons-material/Settings";
+import TimelineIcon from '@mui/icons-material/Timeline';
 import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import LineWeightIcon from '@mui/icons-material/LineWeight';
-import TimelineIcon from '@mui/icons-material/Timeline';
 
 import { Session } from "sessions/Session.js"
 import CameraController from "components/CameraController.js";
@@ -46,6 +50,8 @@ function SceneRenderer() {
   const ref = React.useRef(null);
 
   const [drawer, setDrawer] = React.useState({show: false});
+  const [directory, setDirectory] = React.useState("");
+  const [directoryList, setDirectoryList] = React.useState([]);
   const [addItemModal, setAddItemModal] = React.useState({show: false});
   const [popup, setPopupState] = React.useState({item: ""});
   const [availableItems, setAvailableItems] = React.useState([]);
@@ -55,77 +61,38 @@ function SceneRenderer() {
   const { server } = context;
 
   React.useEffect(() => {
-    Session.setServer(server);
-    Session.query("/server/listModels", {
-      "Directory": "Demo"
-    }).then((response) => {
-      const allItems = [];
-      for (var filename of response.data) {
-        allItems.push({
-          filename: filename,
-          data: null,
-        });
-      }
+    Session.listModels({
+      "Directory": directory
+    }).then((allItems) => {
       setAvailableItems(allItems);
+    });
+  }, [directory]);
+
+  React.useEffect(() => {
+    Session.listDirectories().then((allDirectories) => {
+      setDirectoryList(allDirectories);
+      if (allDirectories.length > 0) setDirectory(allDirectories[0].value);
     });
   }, [server]);
 
   const checkServerObjects = async () => {
-    setAddItemModal({...addItemModal, show: true})
+    setAddItemModal({...addItemModal, show: true});
+  }
+
+  const checkItemIndex = (item) => {
+    for (var i in availableItems) {
+      if (availableItems[i].filename == item.filename) return i; 
+    }
   }
 
   const requestModel = (item) => {
     if (!item.downloaded) {
-      Session.query("/server/getModel", {
-        "Directory": "Demo",
-        "FileName": item.filename
-      }, {responseType: "arraybuffer"}).then((response) => {
-        for (var i in availableItems) {
-          if (availableItems[i].filename == item.filename) {
-            availableItems[i].downloaded = true;
-            setControlItems([...controlItems, {
-              filename: item.filename,
-              downloaded: true,
-              data: parseBinarySTL(response.data),
-              opacity: 1,
-              color: "#FFFFFF",
-              show: true,
-            }]);
-          }
-        }
+      Session.getModels(directory, item).then((data) => {
+        const index = checkItemIndex(item);    
+        availableItems[index].downloaded = true;
         setAvailableItems(availableItems);
-      });
-    } else {
-      for (var i in controlItems) {
-        if (controlItems[i].filename == item.filename) {
-          controlItems[i].show = !controlItems[i].show;
-        }
-      }
-      setControlItems([...controlItems]);
-    }
-    setAddItemModal({...addItemModal, show: false});
-  }
 
-  const requestTracts = (item) => {
-    if (!item.downloaded) {
-      Session.query("/server/getTracts", {
-        "Directory": "Demo",
-        "FileName": item.filename
-      }).then((response) => {
-        for (var i in availableItems) {
-          if (availableItems[i].filename == item.filename) {
-            availableItems[i].downloaded = true;
-            setControlItems([...controlItems, {
-              filename: item.filename,
-              downloaded: true,
-              data: response.data.points,
-              thickness: 1,
-              color: "#FFFFFF",
-              show: true,
-            }]);
-          }
-        }
-        setAvailableItems(availableItems);
+        setControlItems([...controlItems, ...data]);
       });
     } else {
       for (var i in controlItems) {
@@ -139,11 +106,7 @@ function SceneRenderer() {
   }
 
   const loadData = (item) => {
-    if (item.filename.endsWith(".stl")) {
-      requestModel(item);
-    } else if (item.filename.endsWith(".pts")) {
-      requestTracts(item);
-    }
+    requestModel(item);
   }
 
   const updateOpacity = (filename, event) => {
@@ -171,6 +134,8 @@ function SceneRenderer() {
       }
     }
     setControlItems([...controlItems]);
+
+    Session.setSessionConfig(directory, filename, "Color", color.hex);
   }
 
   return <>
@@ -250,6 +215,22 @@ function SceneRenderer() {
           role="presentation"
         >
           <List>
+            <Box key={"FolderSelect"} display="flex" flexDirection={"column"} paddingLeft={2} paddingRight={2} paddingTop={1}>
+              <FormControl fullWidth>
+                <InputLabel id="demo-simple-select-label">Directories</InputLabel>
+                <Select
+                  labelId="demo-simple-select-label"
+                  id="demo-simple-select"
+                  value={directory}
+                  label="Directories"
+                  onChange={(event) => setDirectory(event.target.value)}
+                >
+                  {directoryList.map((folder) => {
+                    return <MenuItem key={folder.value} value={folder.value}> {folder.label} </MenuItem>
+                  })}
+                </Select>
+              </FormControl>
+            </Box>
             {controlItems.map((item) => (
               <Box key={item.filename} display="flex" flexDirection={"column"} paddingLeft={2} paddingRight={2} paddingTop={1}>
                 <Box display="flex" flexDirection={"row"} alignItems={"center"} >

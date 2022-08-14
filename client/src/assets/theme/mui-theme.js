@@ -5,7 +5,7 @@ function pxToRem(number, baseNumber = 16) {
 }
 
 const baseProperties = {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"Poppins", sans-serif',
     fontWeightLighter: 100,
     fontWeightLight: 300,
     fontWeightRegular: 400,

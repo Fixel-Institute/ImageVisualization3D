@@ -1,3 +1,4 @@
+from email.policy import default
 from django.db import models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, User
 from django.utils import timezone
@@ -33,3 +34,10 @@ class PlatformUser(AbstractBaseUser):
     @property
     def is_staff(self):
         return self.is_admin
+
+class AuthorizedAccess(models.Model):
+    user_id = models.UUIDField(default=uuid.uuid1)
+    authorized_list = models.JSONField(default=list)
+
+    def __str__(self):
+        return self.user_id
