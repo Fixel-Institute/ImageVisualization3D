@@ -37,7 +37,8 @@ import OpacityIcon from '@mui/icons-material/Opacity';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import LineWeightIcon from '@mui/icons-material/LineWeight';
 
-import { Session } from "sessions/Session.js"
+import { Session } from "sessions/Session.js";
+import TransformController from "components/TransformController.js";
 import CameraController from "components/CameraController.js";
 import Tractography from "components/Tractography.js";
 import CoordinateSystem from "components/CoordinateSystem.js";
@@ -49,6 +50,7 @@ import { useVisualizerContext } from "context";
 function SceneRenderer() {
   const ref = React.useRef(null);
 
+  const [worldMatrix, setWorldMatrx] = React.useState(null);
   const [drawer, setDrawer] = React.useState({show: false});
   const [directory, setDirectory] = React.useState("");
   const [directoryList, setDirectoryList] = React.useState([]);
@@ -59,6 +61,19 @@ function SceneRenderer() {
 
   const [context, dispatch] = useVisualizerContext();
   const { server } = context;
+
+  React.useEffect(() => {
+    const matrix = new THREE.Matrix4();
+    matrix.set(1, 0, 0, 0,
+               0, 0, 1, 0,
+               0, -1, 0, 0,
+               0, 0, 0, 1);
+    setWorldMatrx([1, 0, 0, 0,
+                  0, 0, 1, 0,
+                  0, -1, 0, 0,
+                  0, 0, 0, 1]);
+    //setWorldMatrx(matrix);
+  }, []);
 
   React.useEffect(() => {
     Session.listModels({
@@ -141,26 +156,41 @@ function SceneRenderer() {
   return <>
     <Canvas style={{height: "calc(100vh - 64px)"}}>
       <CameraController/>
+      <CoordinateSystem length={50} origin={[80, -80, -50]}/>
       <ShadowLight x={-100} y={-100} z={-100} color={0xffffff} intensity={0.5}/>
       <ShadowLight x={100} y={100} z={100} color={0xffffff} intensity={0.5}/>
       <hemisphereLight args={[0xffffff, 0xffffff, 0.2]} color={0x3385ff} groundColor={0xffc880} position={[0, 50, 0]} />
-      <CoordinateSystem length={50} origin={[-50,-50,-50]}/>
-      {controlItems.map((item) => {
-        if (item.data && item.show) {
-          if (item.filename.endsWith(".stl")) {
-            return <Model key={item.filename} geometry={item.data} material={{
-              color: item.color,
-              specular: 0x111111,
-              shininess: 200,
-              opacity: item.opacity
-            }}></Model>
-          } else if (item.filename.endsWith(".pts")) {
-            return item.data.map((arrayPoints, index) => {
-              return <Tractography key={item.filename + index} pointArray={arrayPoints} color={item.color} linewidth={item.thickness}/>
-            })
+      <group>
+        {controlItems.map((item) => {
+          console.log(item)
+          if (item.data && item.show) {
+            if (item.type === "stl") {
+              return <Model key={item.filename} geometry={item.data} matrix={worldMatrix} material={{
+                color: item.color,
+                specular: 0x111111,
+                shininess: 200,
+                opacity: item.opacity
+              }}></Model>
+            } else if (item.type === "electrode") {
+              return <Model key={item.filename} geometry={item.data} material={{
+                color: item.color,
+                specular: 0x111111,
+                shininess: 200,
+                opacity: item.opacity
+              }}></Model>
+            } else if (item.type === "points") {
+              return item.data.map((arrayPoints, index) => {
+                return <Tractography key={item.filename + index} pointArray={arrayPoints} color={item.color} linewidth={item.thickness} matrix={worldMatrix}/>
+              })
+            } else if (item.type === "tracts") {
+              console.log(item)
+              return item.data.map((arrayPoints, index) => {
+                return <Tractography key={item.filename + index} pointArray={arrayPoints} color={item.color} linewidth={item.thickness}/>
+              })
+            }
           }
-        }
-      })}
+        })}
+      </group>
     </Canvas>
   
     <Modal 
@@ -189,8 +219,10 @@ function SceneRenderer() {
               return <ListItem key={item.filename} disablePadding style={{background: item.show ? "#a2cf6e" : ""}}>
                 <ListItemButton onClick={() => loadData(item)}>
                   <ListItemIcon>
-                    {item.filename.endsWith(".stl") ? <ViewInArIcon /> : null}
-                    {item.filename.endsWith(".pts") ? <TimelineIcon /> : null}
+                    {item.type === "stl" ? <ViewInArIcon /> : null}
+                    {item.type === "points" ? <TimelineIcon /> : null}
+                    {item.type === "tracts" ? <TimelineIcon /> : null}
+                    {item.type === "electrode" ? <ViewInArIcon /> : null}
                   </ListItemIcon>
                   <ListItemText primary={item.filename} />
                 </ListItemButton>
@@ -235,8 +267,10 @@ function SceneRenderer() {
               <Box key={item.filename} display="flex" flexDirection={"column"} paddingLeft={2} paddingRight={2} paddingTop={1}>
                 <Box display="flex" flexDirection={"row"} alignItems={"center"} >
                   <IconButton onClick={() => loadData(item)}>
-                    {item.filename.endsWith(".stl") ? <ViewInArIcon style={{background: item.show ? "#a2cf6e" : "#ff4569", borderRadius: "50%", padding: 5}} /> : null}
-                    {item.filename.endsWith(".pts") ? <TimelineIcon style={{background: item.show ? "#a2cf6e" : "#ff4569", borderRadius: "50%", padding: 5}} /> : null}
+                    {item.type === "stl" ? <ViewInArIcon style={{background: item.show ? "#a2cf6e" : "#ff4569", borderRadius: "50%", padding: 5}} /> : null}
+                    {item.type === "electrode" ? <ViewInArIcon style={{background: item.show ? "#a2cf6e" : "#ff4569", borderRadius: "50%", padding: 5}} /> : null}
+                    {item.type === "tracts" ? <TimelineIcon style={{background: item.show ? "#a2cf6e" : "#ff4569", borderRadius: "50%", padding: 5}} /> : null}
+                    {item.type === "points" ? <TimelineIcon style={{background: item.show ? "#a2cf6e" : "#ff4569", borderRadius: "50%", padding: 5}} /> : null}
                   </IconButton>
                   <Typography fontWeight={700}>
                     {item.filename}

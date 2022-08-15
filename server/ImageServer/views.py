@@ -14,6 +14,7 @@ import base64
 
 from . import models
 
+import nibabel as nib
 import numpy as np
 
 class Authenticate(RestViews.APIView):
@@ -94,9 +95,16 @@ class ListModels(RestViews.APIView):
                 if file.replace(".pts",".edge") in files:
                     availableModels.append({
                         "file": file,
-                        "type": "tract",
+                        "type": "points",
                         "mode": "single"
                     })
+
+            elif file.endswith(".tck"):
+                availableModels.append({
+                    "file": file,
+                    "type": "tracts",
+                    "mode": "single"
+                })
 
         if not request.data["Directory"] == "Electrodes":
             electrodes = os.listdir(BASE_DIR + '/resources/' + "Electrodes")
@@ -111,48 +119,50 @@ class ListModels(RestViews.APIView):
 
         return Response(status=200, data=availableModels)
 
+def stlReader(session, directory, filename):
+    with open(BASE_DIR + '/resources/' + directory + '/' + filename, "rb") as file:
+        file_data = bytearray(file.read())
+    colorHeader = bytes("COLOR=","ascii")
+    colorArray = bytearray(colorHeader)
+    
+    try:
+        color = session["Configurations"][directory][filename]["Color"]
+        for i in range(3):
+            colorArray.append(int("0x" + color[i*2+1:(i+1)*2+1], base=16))
+        colorArray.append(255)
+
+    except Exception as e:
+        color = "#FFFFFF"
+        for i in range(3):
+            colorArray.append(int("0x" + color[i*2+1:(i+1)*2+1], base=16))
+        colorArray.append(255)
+        
+    colorFound = False
+    lastDataByte = 0
+    for i in range(80):
+        if file_data[i:i+6] == bytes("COLOR=","ascii"):
+            colorFound = True
+            lastDataByte = i-1
+        
+        if not colorFound:
+            if file_data[i] != 0x00:
+                lastDataByte = i
+    
+    file_data[lastDataByte + 1 : lastDataByte + len(colorArray) + 1] = colorArray
+    return file_data
+
 class GetModels(RestViews.APIView):
     parser_classes = [RestParsers.JSONParser]
 
     def post(self, request):
         if request.data["FileMode"] == "single":
             if request.data["FileType"] == "stl":
-                with open(BASE_DIR + '/resources/' + request.data["Directory"] + '/' + request.data["FileName"], "rb") as file:
-                    file_data = bytearray(file.read())
-                colorHeader = bytes("COLOR=","ascii")
-                colorArray = bytearray(colorHeader)
-                
-                try:
-                    color = request.session["Configurations"][request.data["Directory"]][request.data["FileName"]]["Color"]
-                    for i in range(3):
-                        colorArray.append(int("0x" + color[i*2+1:(i+1)*2+1], base=16))
-                    colorArray.append(255)
-
-                except Exception as e:
-                    color = "#FFFFFF"
-                    for i in range(3):
-                        colorArray.append(int("0x" + color[i*2+1:(i+1)*2+1], base=16))
-                    colorArray.append(255)
-                    
-                colorFound = False
-                lastDataByte = 0
-                for i in range(80):
-                    if file_data[i:i+6] == bytes("COLOR=","ascii"):
-                        colorFound = True
-                        lastDataByte = i-1
-                    
-                    if not colorFound:
-                        if file_data[i] != 0x00:
-                            lastDataByte = i
-                
-                if not colorFound:
-                    file_data[lastDataByte + 1 : lastDataByte + len(colorArray) + 1] = colorArray
-
+                file_data = stlReader(request.session, request.data["Directory"], request.data["FileName"])
                 return HttpResponse(bytes(file_data), status=200, headers={
                     "Content-Type": "application/octet-stream"
                 })
 
-            elif request.data["FileType"] == "tract":
+            elif request.data["FileType"] == "points":
                 pts = np.loadtxt(BASE_DIR + '/resources/' + request.data["Directory"] + '/' + request.data["FileName"])
                 edges = np.loadtxt(BASE_DIR + '/resources/' + request.data["Directory"] + '/' + request.data["FileName"].replace(".pts",".edge"), dtype=int)
                 tracts = []
@@ -167,6 +177,23 @@ class GetModels(RestViews.APIView):
                     "points": tracts
                 })
 
+            elif request.data["FileType"] == "tracts":
+                extractedTckFile = nib.streamlines.load(BASE_DIR + '/resources/' + request.data["Directory"] + '/' + request.data["FileName"])
+                tracts = []
+                for tract in extractedTckFile.streamlines:
+                    tracts.append(tract)
+
+                return Response(status=200, data={
+                    "points": tracts
+                })
+
+            elif request.data["FileType"] == "electrode":
+                file_data = stlReader(request.session["Configurations"], request.data["Directory"], request.data["FileName"])
+                return HttpResponse(bytes(file_data), status=200, headers={
+                    "Content-Type": "application/octet-stream"
+                })
+
+
         elif request.data["FileMode"] == "multiple":
             if request.data["FileType"] == "electrode":
                 pages = []
@@ -176,8 +203,9 @@ class GetModels(RestViews.APIView):
                         pages.append({
                             "filename": file,
                             "directory": "Electrodes",
-                            "type": "stl"
+                            "type": "electrode"
                         })
+
                 return Response(status=200, data=pages)
 
         return Response(status=200)

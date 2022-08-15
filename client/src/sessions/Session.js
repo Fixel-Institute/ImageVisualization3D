@@ -22,6 +22,7 @@ function rgbaToHex (r,g,b,a) {
 function parseBinarySTL(data) {
   const reader = new DataView( data );
   const faces = reader.getUint32( 80, true );
+  console.log(faces)
 
   let r, g, b, hasColors = false, colors;
   let defaultR, defaultG, defaultB, alpha;
@@ -174,6 +175,7 @@ export var Session = (function () {
         const data = parseBinarySTL(response.data);
         controlledItems.push({
           filename: item.filename,
+          type: item.type,
           downloaded: true,
           data: data,
           opacity: 1,
@@ -181,7 +183,7 @@ export var Session = (function () {
           show: true,
         });
 
-      } else if (item.type == "tract") {
+      } else if (item.type == "tracts") {
         const response = await query("/server/getModel", {
           "Directory": directory,
           "FileName": item.filename,
@@ -190,13 +192,52 @@ export var Session = (function () {
         });
         controlledItems.push({
           filename: item.filename,
+          type: item.type,
           downloaded: true,
           data: response.data.points,
           thickness: 1,
           color: "#FFFFFF",
           show: true,
         });
+
+      } else if (item.type == "points") {
+        const response = await query("/server/getModel", {
+          "Directory": directory,
+          "FileName": item.filename,
+          "FileMode": item.mode,
+          "FileType": item.type
+        });
+        controlledItems.push({
+          filename: item.filename,
+          type: item.type,
+          downloaded: true,
+          data: response.data.points,
+          thickness: 1,
+          color: "#FFFFFF",
+          show: true,
+        });
+
+      } else if (item.type == "electrode") {
+        const response = await query("/server/getModel", {
+          "Directory": directory,
+          "FileName": item.filename,
+          "FileMode": item.mode,
+          "FileType": item.type
+        }, {responseType: "arraybuffer"});
+        console.log(response)
+        const data = parseBinarySTL(response.data);
+        controlledItems.push({
+          filename: item.filename,
+          type: item.type,
+          downloaded: true,
+          data: data,
+          opacity: 1,
+          color: data.color,
+          show: true,
+        });
+
       }
+
       return controlledItems;
 
     } else if (item.mode == "multiple") {
@@ -206,6 +247,8 @@ export var Session = (function () {
         "FileMode": item.mode,
         "FileType": item.type
       });
+
+      console.log(pagination)
 
       for (var page of pagination.data) {
         const data = await getModels(page.directory, {
