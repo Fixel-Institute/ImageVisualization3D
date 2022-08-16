@@ -5,7 +5,6 @@ import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { Session } from "sessions/Session.js";
 
 function Model({geometry, material, matrix}) {
-
   /*
   const objectRef = React.useRef();
   React.useEffect(() => { 
@@ -15,9 +14,8 @@ function Model({geometry, material, matrix}) {
     }
   }, [objectRef]);
   */
-  const worldMatrix = new THREE.Matrix4();
-  worldMatrix.set(...matrix);
-  return <mesh castShadow matrixAutoUpdate={false} matrix={worldMatrix}>
+ 
+  return <mesh castShadow matrixAutoUpdate={false} matrix={matrix}>
     <bufferGeometry attach="geometry" attributes={{
       position: geometry.position,
       normal: geometry.normal

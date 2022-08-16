@@ -7,10 +7,7 @@ function Tractography({pointArray, color, linewidth, matrix}) {
     points.push(point[0], point[1], point[2] || 0);
   };
 
-  const worldMatrix = new THREE.Matrix4();
-  worldMatrix.set(...matrix);
-  
-  return <line matrixAutoUpdate={false} matrix={worldMatrix}>
+  return <line matrixAutoUpdate={false} matrix={matrix}>
     <bufferGeometry attributes={{
       position: new THREE.Float32BufferAttribute(points, 3)
     }}/>

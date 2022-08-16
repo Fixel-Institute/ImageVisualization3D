@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   Drawer,
+  Dialog,
   Fab,
   Fade,
   FormControl,
@@ -24,6 +25,7 @@ import {
   InputLabel,
   Select,
   Typography,
+  TextField,
   Icon,
   Popover
 } from "@mui/material";
@@ -54,6 +56,8 @@ function SceneRenderer() {
   const [drawer, setDrawer] = React.useState({show: false});
   const [directory, setDirectory] = React.useState("");
   const [directoryList, setDirectoryList] = React.useState([]);
+  
+  const [targetDialog, setTargetDialog] = React.useState({show: false, filename: "", targetPts: [0,0,0], entryPts: [0,0,0]});
   const [addItemModal, setAddItemModal] = React.useState({show: false});
   const [popup, setPopupState] = React.useState({item: ""});
   const [availableItems, setAvailableItems] = React.useState([]);
@@ -68,11 +72,7 @@ function SceneRenderer() {
                0, 0, 1, 0,
                0, -1, 0, 0,
                0, 0, 0, 1);
-    setWorldMatrx([1, 0, 0, 0,
-                  0, 0, 1, 0,
-                  0, -1, 0, 0,
-                  0, 0, 0, 1]);
-    //setWorldMatrx(matrix);
+    setWorldMatrx(matrix);
   }, []);
 
   React.useEffect(() => {
@@ -146,46 +146,83 @@ function SceneRenderer() {
     for (var i in controlItems) {
       if (controlItems[i].filename == filename) {
         controlItems[i].color = color.hex;
+        break;
       }
     }
     setControlItems([...controlItems]);
-
     Session.setSessionConfig(directory, filename, "Color", color.hex);
+  }
+
+  const updateTargeting = () => {
+    for (var i in targetDialog.targetPts) {
+      if (typeof(targetDialog.targetPts[i]) == "string") {
+        targetDialog.targetPts[i] = parseFloat(targetDialog.targetPts[i]);
+        if (isNaN(targetDialog.entryPts[i])) {
+          targetDialog.entryPts[i] = 0;
+        }
+      }
+      if (typeof(targetDialog.entryPts[i]) == "string") {
+        targetDialog.entryPts[i] = parseFloat(targetDialog.entryPts[i]);
+        if (isNaN(targetDialog.entryPts[i])) {
+          targetDialog.entryPts[i] = 0;
+        }
+      }
+    }
+    
+    const tform = Session.computeElectrodePlacement(targetDialog.targetPts, targetDialog.entryPts);
+    for (var i in controlItems) {
+      if (controlItems[i].filename == targetDialog.filename) {
+        controlItems[i].matrix = tform;
+        break;
+      }
+    }
+    setControlItems([...controlItems]);
+    setTargetDialog({show: false, filename: "", targetPts: [0,0,0], entryPts: [0,0,0]});
+  }
+
+  const setTargetDialogPoitns = (type, index, event) => {
+    var currentPts = targetDialog[type];
+    currentPts[index] = event.currentTarget.value;
+    setTargetDialog({...targetDialog, [type]: currentPts});
   }
 
   return <>
     <Canvas style={{height: "calc(100vh - 64px)"}}>
       <CameraController/>
+      <axesHelper args={[50]}/>
       <CoordinateSystem length={50} origin={[80, -80, -50]}/>
       <ShadowLight x={-100} y={-100} z={-100} color={0xffffff} intensity={0.5}/>
       <ShadowLight x={100} y={100} z={100} color={0xffffff} intensity={0.5}/>
-      <hemisphereLight args={[0xffffff, 0xffffff, 0.2]} color={0x3385ff} groundColor={0xffc880} position={[0, 50, 0]} />
-      <group>
+      <hemisphereLight args={[0xffffff, 0xffffff, 0.2]} color={0x3385ff} groundColor={0xffc880} position={[0, 100, 0]} />
+      <hemisphereLight args={[0xffffff, 0xffffff, 0.2]} color={0x3385ff} groundColor={0xffc880} position={[0, -100, 0]} />
+      <group matrixAutoUpdate={false} matrix={worldMatrix}>
         {controlItems.map((item) => {
-          console.log(item)
           if (item.data && item.show) {
             if (item.type === "stl") {
-              return <Model key={item.filename} geometry={item.data} matrix={worldMatrix} material={{
-                color: item.color,
-                specular: 0x111111,
-                shininess: 200,
-                opacity: item.opacity
-              }}></Model>
-            } else if (item.type === "electrode") {
               return <Model key={item.filename} geometry={item.data} material={{
                 color: item.color,
                 specular: 0x111111,
                 shininess: 200,
                 opacity: item.opacity
-              }}></Model>
+              }} matrix={item.matrix}></Model>
+            } else if (item.type === "electrode") {
+              return <group key={item.filename}>
+                {item.data.map((value, index) => {
+                  return <Model key={item.subname[index]} geometry={value} material={{
+                    color: item.subname[index].endsWith("_shaft.stl") ? item.color : "#FFFFFF",
+                    specular: 0x111111,
+                    shininess: 200,
+                    opacity: item.opacity
+                  }} matrix={item.matrix}></Model>
+                })}
+              </group>
             } else if (item.type === "points") {
               return item.data.map((arrayPoints, index) => {
-                return <Tractography key={item.filename + index} pointArray={arrayPoints} color={item.color} linewidth={item.thickness} matrix={worldMatrix}/>
+                return <Tractography key={item.filename + index} pointArray={arrayPoints} color={item.color} linewidth={item.thickness} matrix={item.matrix}/>
               })
             } else if (item.type === "tracts") {
-              console.log(item)
               return item.data.map((arrayPoints, index) => {
-                return <Tractography key={item.filename + index} pointArray={arrayPoints} color={item.color} linewidth={item.thickness}/>
+                return <Tractography key={item.filename + index} pointArray={arrayPoints} color={item.color} linewidth={item.thickness} matrix={item.matrix}/>
               })
             }
           }
@@ -233,6 +270,53 @@ function SceneRenderer() {
       </Box>
     </Modal>
 
+    <Dialog 
+      open={targetDialog.show}
+      onClose={() => setTargetDialog({...targetDialog, show: false})}
+      fullWidth
+    >
+      <Box sx={{
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        boxShadow: 24,
+        p: 4,
+      }}>
+        <Box>
+          <Typography component="h2" fontSize={24} fontWeight={"700"}>
+            Edit Target Coordinate
+          </Typography>
+          <Grid container spacing={3} sx={{paddingTop: 3}}>
+            <Grid item xs={12} sm={4}>
+              <TextField value={targetDialog.targetPts[0]} onChange={(event) => setTargetDialogPoitns("targetPts", 0, event)} label={"Target LT"}/>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField value={targetDialog.targetPts[1]} onChange={(event) => setTargetDialogPoitns("targetPts", 1, event)} label={"Target AP"}/>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField value={targetDialog.targetPts[2]} onChange={(event) => setTargetDialogPoitns("targetPts", 2, event)} label={"Target AX"}/>
+            </Grid>
+          </Grid>
+        </Box>
+        <Box marginTop={3} marginBottom={3}>
+          <Typography component="h2" fontSize={24} fontWeight={"700"}>
+            Edit Entry Coordinate
+          </Typography>
+          <Grid container spacing={3} sx={{paddingTop: 3}}>
+            <Grid item xs={12} sm={4}>
+              <TextField value={targetDialog.entryPts[0]} onChange={(event) => setTargetDialogPoitns("entryPts", 0, event)} label={"Entry LT"}/>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField value={targetDialog.entryPts[1]} onChange={(event) => setTargetDialogPoitns("entryPts", 1, event)} label={"Entry AP"}/>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField value={targetDialog.entryPts[2]} onChange={(event) => setTargetDialogPoitns("entryPts", 2, event)} label={"Entry AX"}/>
+            </Grid>
+          </Grid>
+        </Box>
+        <Button variant="contained" fullWidth onClick={() => updateTargeting()}> {"Update Electrode"} </Button>
+      </Box>
+    </Dialog>
+
     <Box position={"absolute"} sx={{right: 20, bottom: 20}}>
       <Fab size="large" color="primary" onClick={() => setDrawer({...drawer, show: true})}>
         <SettingIcon/>
@@ -264,7 +348,7 @@ function SceneRenderer() {
               </FormControl>
             </Box>
             {controlItems.map((item) => (
-              <Box key={item.filename} display="flex" flexDirection={"column"} paddingLeft={2} paddingRight={2} paddingTop={1}>
+              <Box key={item.filename} display="flex" flexDirection={"column"} marginLeft={2} marginRight={2} paddingTop={1}>
                 <Box display="flex" flexDirection={"row"} alignItems={"center"} >
                   <IconButton onClick={() => loadData(item)}>
                     {item.type === "stl" ? <ViewInArIcon style={{background: item.show ? "#a2cf6e" : "#ff4569", borderRadius: "50%", padding: 5}} /> : null}
@@ -294,7 +378,7 @@ function SceneRenderer() {
                     <BlockPicker color={item.color} onChange={(color) => updateObjectColor(item.filename, color)}/>
                   </Popover>
                 </Box>
-                {item.filename.endsWith(".stl") ? (
+                {item.type === "stl" ? (
                   <Box display="flex" flexDirection={"row"} alignItems={"center"} paddingLeft={1} paddingTop={1}>
                     <Icon style={{marginRight: 15}}>
                       <OpacityIcon />
@@ -302,7 +386,34 @@ function SceneRenderer() {
                     <Slider value={item.opacity} step={0.05} min={0} max={1} onChange={(event) => updateOpacity(item.filename, event)}></Slider>
                   </Box>
                 ) : null}
-                {item.filename.endsWith(".pts") ? (
+                {item.type === "electrode" ? (
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <Box display="flex" flexDirection={"row"} alignItems={"center"} paddingLeft={1} paddingTop={1}>
+                        <Icon style={{marginRight: 15}}>
+                          <OpacityIcon />
+                        </Icon>
+                        <Slider value={item.opacity} step={0.05} min={0} max={1} onChange={(event) => updateOpacity(item.filename, event)}></Slider>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Box display="flex" flexDirection={"row"} alignItems={"center"} paddingLeft={1} paddingTop={1}>
+                        <Button variant="contained" fullWidth onClick={() => setTargetDialog({...targetDialog, filename: item.filename, targetPts: item.targetPts, entryPts: item.entryPts, show: true})}>
+                          {"Update Targeting"}
+                        </Button>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                ) : null}
+                {item.type === "points" ? (
+                  <Box display="flex" flexDirection={"row"} alignItems={"center"} paddingLeft={1} paddingTop={1}>
+                    <Icon style={{marginRight: 15}}>
+                      <LineWeightIcon />
+                    </Icon>
+                    <Slider value={item.thickness} step={1} min={1} max={5} onChange={(event) => updateLineWidth(item.filename, event)}></Slider>
+                  </Box>
+                ) : null}
+                {item.type === "tracts" ? (
                   <Box display="flex" flexDirection={"row"} alignItems={"center"} paddingLeft={1} paddingTop={1}>
                     <Icon style={{marginRight: 15}}>
                       <LineWeightIcon />

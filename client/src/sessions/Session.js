@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as THREE from "three";
 import cookie from "react-cookies";
+import * as math from "mathjs";
 
 function rgbaToHex (r,g,b,a) {
   var outParts = [
@@ -95,6 +96,15 @@ function parseBinarySTL(data) {
   };
 }
 
+function identityMatrix() {
+  const matrix = new THREE.Matrix4();
+  matrix.set(1, 0, 0, 0,
+             0, 1, 0, 0,
+             0, 0, 1, 0,
+             0, 0, 0, 1);
+  return matrix;
+}
+
 export var Session = (function () {
   var serverAddress = "";
   var configurations = {}
@@ -180,6 +190,7 @@ export var Session = (function () {
           data: data,
           opacity: 1,
           color: data.color,
+          matrix: identityMatrix(),
           show: true,
         });
 
@@ -197,6 +208,7 @@ export var Session = (function () {
           data: response.data.points,
           thickness: 1,
           color: "#FFFFFF",
+          matrix: identityMatrix(),
           show: true,
         });
 
@@ -214,6 +226,7 @@ export var Session = (function () {
           data: response.data.points,
           thickness: 1,
           color: "#FFFFFF",
+          matrix: identityMatrix(),
           show: true,
         });
 
@@ -224,20 +237,14 @@ export var Session = (function () {
           "FileMode": item.mode,
           "FileType": item.type
         }, {responseType: "arraybuffer"});
-        console.log(response)
         const data = parseBinarySTL(response.data);
         controlledItems.push({
           filename: item.filename,
-          type: item.type,
-          downloaded: true,
           data: data,
-          opacity: 1,
           color: data.color,
-          show: true,
         });
 
       }
-
       return controlledItems;
 
     } else if (item.mode == "multiple") {
@@ -248,17 +255,32 @@ export var Session = (function () {
         "FileType": item.type
       });
 
-      console.log(pagination)
+      const targetPts = [0,0,0];
+      const entryPts = [0,0,50];
 
-      for (var page of pagination.data) {
+      const electrode_data = {
+        filename: item.filename,
+        type: item.type,
+        downloaded: true,
+        subname: [],
+        data: [],
+        color: pagination.data.color,
+        opacity: 1,
+        targetPts: targetPts,
+        entryPts: entryPts,
+        matrix: computeElectrodePlacement(targetPts, entryPts),
+        show: true,
+      };
+      for (var page of pagination.data.pages) {
         const data = await getModels(page.directory, {
           filename: page.filename,
           mode: "single",
           type: page.type
         });
-        controlledItems.push(...data);
+        electrode_data.subname.push(data[0].filename);
+        electrode_data.data.push(data[0].data);
       }
-      return controlledItems;
+      return [electrode_data]
     }
   }
 
@@ -270,6 +292,35 @@ export var Session = (function () {
       "Type": type,
       "Value": value
     });
+  }
+
+  const computeElectrodePlacement = (targetPts, entryPts) => {
+    const default_lead_model = math.matrix([[0,0,0,1],[0,-1,0,1],[0,0,1,1],[1,0,0,1]]);
+    const target = math.matrix(targetPts);
+    const entry = math.matrix(entryPts);
+    const zDirection = math.subtract(target, entry);
+
+    console.log(target);
+    console.log(entry)
+
+    const K = math.divide(zDirection, math.norm(zDirection));
+    const temp = math.divide(math.subtract(math.add(target, 5), target), math.norm(math.subtract(math.add(target, 5), target)));
+    const I = math.divide(math.cross(K, temp), math.norm(math.cross(K, temp)));
+    const J = math.divide(math.cross(I, K), math.norm(math.cross(I, K)));
+
+    const template_coordinates = math.matrix([target, math.add(K, target), math.add(J, target), math.add(I, target)]);
+    const template_coordinates_matrix = math.resize(template_coordinates, [4,4], 1);
+    const transform_matrix = math.inv(math.multiply(math.inv(default_lead_model), template_coordinates_matrix));
+    
+    console.log(template_coordinates)
+
+    const affine_matrix = new THREE.Matrix4();
+    affine_matrix.set(...transform_matrix.reshape([16])._data);
+    return affine_matrix;
+  }
+
+  const computeTransformationMatrix = () => {
+
   }
 
   const getData = async (url, form) => {
@@ -297,6 +348,8 @@ export var Session = (function () {
     listDirectories: listDirectories,
     listModels: listModels,
     getModels: getModels,
+    computeTransformationMatrix: computeTransformationMatrix,
+    computeElectrodePlacement: computeElectrodePlacement,
 
     getData: getData,
     query: query

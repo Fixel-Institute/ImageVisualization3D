@@ -139,7 +139,7 @@ def stlReader(session, directory, filename):
         
     colorFound = False
     lastDataByte = 0
-    for i in range(80):
+    for i in range(70):
         if file_data[i:i+6] == bytes("COLOR=","ascii"):
             colorFound = True
             lastDataByte = i-1
@@ -188,7 +188,7 @@ class GetModels(RestViews.APIView):
                 })
 
             elif request.data["FileType"] == "electrode":
-                file_data = stlReader(request.session["Configurations"], request.data["Directory"], request.data["FileName"])
+                file_data = stlReader(request.session, request.data["Directory"], request.data["FileName"])
                 return HttpResponse(bytes(file_data), status=200, headers={
                     "Content-Type": "application/octet-stream"
                 })
@@ -203,10 +203,16 @@ class GetModels(RestViews.APIView):
                         pages.append({
                             "filename": file,
                             "directory": "Electrodes",
-                            "type": "electrode"
+                            "type": "electrode",
                         })
 
-                return Response(status=200, data=pages)
+                try:
+                    print(request.data["Directory"])
+                    color = request.session["Configurations"][request.data["Directory"]][request.data["FileName"]]["Color"]
+                except:
+                    color = "#000000"
+
+                return Response(status=200, data={"pages": pages, "color": color})
 
         return Response(status=200)
 
