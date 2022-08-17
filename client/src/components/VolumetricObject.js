@@ -1,4 +1,8 @@
+import React from "react";
+
 import {
+  BoxGeometry,
+  Mesh,
   Texture,
   LinearFilter,
   DoubleSide,
@@ -15,10 +19,6 @@ import {
 } from "@react-three/fiber";
 
 import * as math from "mathjs";
-
-function mapRange() {
-
-}
 
 function extractSlice(data, dimension, slice_index, axis) {
   switch (axis) {
@@ -81,28 +81,74 @@ function createTexture(data, width, height, clim) {
   return new DataTexture(cdata, width, height);
 }
 
-function dragControl(event) {
-  console.log(event)
-}
+function VolumetricSlice({data, axis, matrix, cameraLock}) {
+  const index = data.axisOrder.indexOf(axis);
+  const { camera } = useThree();
 
-function VolumetricSlice({data, sliceIndex, axis, matrix}) {
-  const slice = extractSlice(data.data, data.dimensions, sliceIndex, axis);
+  const [sliceIndex, setSliceIndex] = React.useState(Math.floor(data.dimensions[index]/2));
+  const [slice, setSlice] = React.useState(null);
+  const [toMoveSlice, setToMoveSlice] = React.useState(false);
+  const [startCoordinate, setStartCoordinate] = React.useState(null);
+
+  const { mouse } = useThree();
+
+  React.useEffect(() => {
+    const sliceBuffer = extractSlice(data.data, data.dimensions, sliceIndex, axis);
+    setSlice(sliceBuffer);
+  }, [sliceIndex])
+  
+  function onMouseDown(event) {
+    event.stopPropagation();
+    if (cameraLock) {
+      setStartCoordinate(math.matrix([mouse.x, mouse.y]));
+      setToMoveSlice(true);
+    }
+  }
+
+  function onMouseUp(event) {
+    event.stopPropagation();
+    setToMoveSlice(false);
+  }
+
+  React.useEffect(() => {
+    if (!toMoveSlice) return;
+
+    const mouseMove = (event) => {
+      const scale = math.norm(math.matrix([camera.position.x, camera.position.y, camera.position.z]));
+      const currentDirection = math.subtract(math.matrix([mouse.x, mouse.y]), startCoordinate);
+      const sign = currentDirection._data[0] + currentDirection._data[1];
+      const newSlice = Math.floor(sliceIndex + sign * math.norm(currentDirection) * scale);
+
+      if (newSlice < 0) newSlice = 0;
+      if (newSlice >= data.dimensions[index]) newSlice = data.dimensions[index]-1;
+      setSliceIndex(newSlice);
+    }
+
+    window.addEventListener('mousemove', mouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', mouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    }
+  }, [toMoveSlice]);
+
+  if (!slice) return null;
 
   if (axis == "z") {
     const offset_matrix = new Matrix4();
     offset_matrix.makeTranslation(-data.xRange._data[Math.floor(data.dimensions[0]/2)], -data.yRange._data[Math.floor(data.dimensions[1]/2)], -data.zRange._data[data.dimensions[2]-1]);
 
-    const canvasMap = createTexture(slice, data.dimensions[0], data.dimensions[1], [-data.windowHigh, data.windowHigh]);
+    const canvasMap = createTexture(slice, data.dimensions[0], data.dimensions[1], [data.windowLow, data.windowHigh]);
     canvasMap.minFilter = LinearFilter;
     canvasMap.wrapS = canvasMap.wrapT = ClampToEdgeWrapping;
     canvasMap.needsUpdate = true;
 
     const slice_position = new Matrix4().makeTranslation(0,0,data.zRange._data[sliceIndex]);
     const position = new Matrix4().makeRotationZ(Math.PI).premultiply(offset_matrix).premultiply(matrix).multiply(slice_position);
-    return <mesh matrixAutoUpdate={false} matrix={position} onWheel={(event) => dragControl(event)}>
+    return <mesh matrixAutoUpdate={false} matrix={position} onPointerDown={onMouseDown} onPointerUp={onMouseUp}>
       <planeGeometry args={[data.dimensions[0],data.dimensions[1]]} />
       <meshBasicMaterial map={canvasMap} side={DoubleSide} transparent={true}/>
-    </mesh>
+    </mesh>;
 
   } else if (axis == "y") {
     const offset_matrix = new Matrix4();
@@ -115,10 +161,10 @@ function VolumetricSlice({data, sliceIndex, axis, matrix}) {
 
     const slice_position = new Matrix4().makeTranslation(0,0,data.yRange._data[sliceIndex]);
     const position = new Matrix4().makeRotationX(Math.PI/2).premultiply(offset_matrix).premultiply(matrix).multiply(slice_position);
-    return <mesh matrixAutoUpdate={false} matrix={position}>
+    return <mesh matrixAutoUpdate={false} matrix={position} onPointerDown={onMouseDown} onPointerUp={onMouseUp}>
       <planeGeometry args={[data.dimensions[0],data.dimensions[2]]} />
       <meshBasicMaterial map={canvasMap} side={DoubleSide} transparent={true}/>
-    </mesh>
+    </mesh>;
 
   } else if (axis == "x") {
     const offset_matrix = new Matrix4();
@@ -131,14 +177,14 @@ function VolumetricSlice({data, sliceIndex, axis, matrix}) {
 
     const slice_position = new Matrix4().makeTranslation(0,0,data.xRange._data[sliceIndex]);
     const position = new Matrix4().makeRotationY(-Math.PI/2).multiply(new Matrix4().makeRotationZ(-Math.PI/2)).premultiply(offset_matrix).premultiply(matrix).multiply(slice_position);
-    return <mesh matrixAutoUpdate={false} matrix={position}>
+    return <mesh matrixAutoUpdate={false} matrix={position} onPointerDown={onMouseDown} onPointerUp={onMouseUp}>
       <planeGeometry args={[data.dimensions[1],data.dimensions[2]]} />
       <meshBasicMaterial map={canvasMap} side={DoubleSide} transparent={true}/>
-    </mesh>
+    </mesh>;
   }
 }
 
-function VolumetricObject({data, matrix}) {
+function VolumetricObject({data, matrix, cameraLock}) {
   console.log(data)
 
   const coordinateTransformation = new Matrix4();
@@ -147,10 +193,16 @@ function VolumetricObject({data, matrix}) {
   const tform = math.transpose(math.inv(math.matrix(data.matrix.toArray()).reshape([4,4])));
   const invertedTForm = new Matrix4().set(...tform.reshape([16])._data);
 
+  const geometry = new BoxGeometry( data.xRange._data.length, data.yRange._data.length, data.zRange._data.length );
+  const material = new MeshBasicMaterial( { color: 0x00ff00 } );
+  const cube = new Mesh( geometry, material );
+
   return <group matrixAutoUpdate={false} matrix={coordinateTransformation}>
-    <VolumetricSlice data={data} sliceIndex={150} axis={"z"} matrix={invertedTForm} />
-    <VolumetricSlice data={data} sliceIndex={255} axis={"y"} matrix={invertedTForm} />
-    <VolumetricSlice data={data} sliceIndex={255} axis={"x"} matrix={invertedTForm} />
+    <boxHelper args={[cube, 0xffff00]}>
+    </boxHelper>
+    <VolumetricSlice data={data} sliceIndex={50} axis={"z"} matrix={invertedTForm} cameraLock={cameraLock} />
+    <VolumetricSlice data={data} sliceIndex={255} axis={"y"} matrix={invertedTForm} cameraLock={cameraLock} />
+    <VolumetricSlice data={data} sliceIndex={255} axis={"x"} matrix={invertedTForm} cameraLock={cameraLock} />
   </group>
 }
 

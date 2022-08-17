@@ -14,7 +14,6 @@ import base64
 
 from . import models
 
-from stl import mesh
 import nibabel as nib
 import numpy as np
 

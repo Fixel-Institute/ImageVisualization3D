@@ -39,6 +39,8 @@ import ViewInArIcon from '@mui/icons-material/ViewInAr';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import LineWeightIcon from '@mui/icons-material/LineWeight';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import NoPhotographyIcon from '@mui/icons-material/NoPhotography';
 
 import { Session } from "sessions/Session.js";
 import TransformController from "components/TransformController.js";
@@ -54,6 +56,7 @@ import { useVisualizerContext } from "context";
 function SceneRenderer() {
   const ref = React.useRef(null);
 
+  const [cameraLock, setCameraLock] = React.useState(false);
   const [worldMatrix, setWorldMatrx] = React.useState(null);
   const [drawer, setDrawer] = React.useState({show: false});
   const [directory, setDirectory] = React.useState("");
@@ -199,8 +202,8 @@ function SceneRenderer() {
 
   return <>
     <Canvas style={{height: "calc(100vh - 64px)"}}>
-      <CameraController/>
-      <CoordinateSystem length={50} origin={[0, 0, 0]}/>
+      <CameraController cameraLock={cameraLock}/>
+      <CoordinateSystem length={50} origin={[300, -300, -150]}/>
       <ShadowLight x={-100} y={-100} z={-100} color={0xffffff} intensity={0.5}/>
       <ShadowLight x={100} y={100} z={100} color={0xffffff} intensity={0.5}/>
       <hemisphereLight args={[0xffffff, 0xffffff, 0.2]} color={0x3385ff} groundColor={0xffc880} position={[0, 100, 0]} />
@@ -235,7 +238,7 @@ function SceneRenderer() {
                 return <Tractography key={item.filename + index} pointArray={arrayPoints} color={item.color} linewidth={item.thickness} matrix={item.matrix}/>
               })
             } else if (item.type === "volume") {
-              return <VolumetricObject key={item.filename} data={item.data} matrix={worldMatrix} />
+              return <VolumetricObject key={item.filename} data={item.data} matrix={worldMatrix} cameraLock={cameraLock} />
             }
           }
         })}
@@ -328,6 +331,12 @@ function SceneRenderer() {
         <Button variant="contained" fullWidth onClick={() => updateTargeting()}> {"Update Electrode"} </Button>
       </Box>
     </Dialog>
+    
+    <Box position={"absolute"} sx={{left: 20, bottom: 20}}>
+      <Fab size="large" color="secondary" onClick={() => setCameraLock(!cameraLock)}>
+        {cameraLock ? <NoPhotographyIcon/> : <PhotoCameraIcon/>}
+      </Fab>
+    </Box>
 
     <Box position={"absolute"} sx={{right: 20, bottom: 20}}>
       <Fab size="large" color="primary" onClick={() => setDrawer({...drawer, show: true})}>
