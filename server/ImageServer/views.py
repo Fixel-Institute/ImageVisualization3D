@@ -14,6 +14,7 @@ import base64
 
 from . import models
 
+from stl import mesh
 import nibabel as nib
 import numpy as np
 
@@ -106,6 +107,13 @@ class ListModels(RestViews.APIView):
                     "mode": "single"
                 })
 
+            elif file.endswith(".nii.gz") or file.endswith(".nii"):
+                availableModels.append({
+                    "file": file,
+                    "type": "volume",
+                    "mode": "multiple"
+                })
+
         if not request.data["Directory"] == "Electrodes":
             electrodes = os.listdir(BASE_DIR + '/resources/' + "Electrodes")
             for file in electrodes:
@@ -193,6 +201,12 @@ class GetModels(RestViews.APIView):
                     "Content-Type": "application/octet-stream"
                 })
 
+            elif request.data["FileType"] == "volume":
+                nii = nib.load(BASE_DIR + '/resources/' + request.data["Directory"] + '/' + request.data["FileName"])
+                raw_data = nii.get_fdata().astype(np.uint16)
+                return HttpResponse(bytes(raw_data), status=200, headers={
+                    "Content-Type": "application/octet-stream"
+                })
 
         elif request.data["FileMode"] == "multiple":
             if request.data["FileType"] == "electrode":
@@ -213,6 +227,15 @@ class GetModels(RestViews.APIView):
                     color = "#000000"
 
                 return Response(status=200, data={"pages": pages, "color": color})
+            
+            elif request.data["FileType"] == "volume":
+                nii = nib.load(BASE_DIR + '/resources/' + request.data["Directory"] + '/' + request.data["FileName"])
+                headers = {
+                    "size": nii.header["dim"][1:4],
+                    "pixdim": nii.header["pixdim"][1:4],
+                    "affine": nii.header.get_best_affine().reshape(16)
+                }
+                return Response(status=200, data={"headers": headers})
 
         return Response(status=200)
 

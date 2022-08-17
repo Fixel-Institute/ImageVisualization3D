@@ -2,6 +2,9 @@ import axios from "axios";
 import * as THREE from "three";
 import cookie from "react-cookies";
 import * as math from "mathjs";
+import { Volume } from "three/examples/jsm/misc/Volume";
+import { VolumeSlice } from "three/examples/jsm/misc/VolumeSlice";
+import { Matrix3 } from "three";
 
 function rgbaToHex (r,g,b,a) {
   var outParts = [
@@ -193,6 +196,15 @@ export var Session = (function () {
           matrix: identityMatrix(),
           show: true,
         });
+      
+      } else if (item.type == "volume") {
+        const response = await query("/server/getModel", {
+          "Directory": directory,
+          "FileName": item.filename,
+          "FileMode": item.mode,
+          "FileType": item.type
+        }, {responseType: "arraybuffer"});
+        return response.data;
 
       } else if (item.type == "tracts") {
         const response = await query("/server/getModel", {
@@ -248,39 +260,95 @@ export var Session = (function () {
       return controlledItems;
 
     } else if (item.mode == "multiple") {
-      const pagination = await query("/server/getModel", {
-        "Directory": directory,
-        "FileName": item.filename,
-        "FileMode": item.mode,
-        "FileType": item.type
-      });
 
-      const targetPts = [0,0,0];
-      const entryPts = [0,0,50];
-
-      const electrode_data = {
-        filename: item.filename,
-        type: item.type,
-        downloaded: true,
-        subname: [],
-        data: [],
-        color: pagination.data.color,
-        opacity: 1,
-        targetPts: targetPts,
-        entryPts: entryPts,
-        matrix: computeElectrodePlacement(targetPts, entryPts),
-        show: true,
-      };
-      for (var page of pagination.data.pages) {
-        const data = await getModels(page.directory, {
-          filename: page.filename,
-          mode: "single",
-          type: page.type
+      if (item.type === "electrode") {
+        const pagination = await query("/server/getModel", {
+          "Directory": directory,
+          "FileName": item.filename,
+          "FileMode": item.mode,
+          "FileType": item.type
         });
-        electrode_data.subname.push(data[0].filename);
-        electrode_data.data.push(data[0].data);
+  
+        const targetPts = [0,0,0];
+        const entryPts = [0,0,50];
+  
+        const electrode_data = {
+          filename: item.filename,
+          type: item.type,
+          downloaded: true,
+          subname: [],
+          data: [],
+          color: pagination.data.color,
+          opacity: 1,
+          targetPts: targetPts,
+          entryPts: entryPts,
+          matrix: computeElectrodePlacement(targetPts, entryPts),
+          show: true,
+        };
+        for (var page of pagination.data.pages) {
+          const data = await getModels(page.directory, {
+            filename: page.filename,
+            mode: "single",
+            type: page.type
+          });
+          electrode_data.subname.push(data[0].filename);
+          electrode_data.data.push(data[0].data);
+        }
+        return [electrode_data]
+
+      } else if (item.type === "volume") {
+        const header_response = await query("/server/getModel", {
+          "Directory": directory,
+          "FileName": item.filename,
+          "FileMode": item.mode,
+          "FileType": item.type
+        });
+        
+        const volume = {};
+        volume.header = header_response.data.headers;
+        volume.dimensions = volume.header.size;
+        volume.xRange = math.multiply(math.range(0,volume.header.size[0]), volume.header.pixdim[0]);
+        volume.yRange = math.multiply(math.range(0,volume.header.size[1]), volume.header.pixdim[1]);
+        volume.zRange = math.multiply(math.range(0,volume.header.size[2]), volume.header.pixdim[2]);
+        volume.axisOrder = [ 'x', 'y', 'z' ];
+        volume.spacing = volume.header.pixdim;
+        volume.matrix = new THREE.Matrix4();
+        volume.matrix.set(...volume.header.affine);
+        
+        const _data = await getModels(directory, {
+          filename: item.filename,
+          mode: "single",
+          type: item.type
+        });
+
+        volume.data = new Uint16Array(_data);
+        let min = Infinity;
+        let max = - Infinity;
+        const datasize = volume.data.length;
+        for ( var i = 0; i < datasize; i ++ ) {
+          if ( ! isNaN( volume.data[ i ] ) ) {
+            const value = volume.data[ i ];
+            min = Math.min( min, value );
+            max = Math.max( max, value );
+          }
+        }
+        volume.lowerThreshold = min;
+        volume.upperThreshold = max;
+        volume.windowLow = min;
+        volume.windowHigh = max;
+
+        volume.data = math.matrix(Array.from(volume.data));
+        volume.data.reshape(volume.dimensions);
+        
+        return [{
+          filename: item.filename,
+          type: item.type,
+          data: volume,
+          color: "",
+          matrix: identityMatrix(),
+          show: true,
+        }];
       }
-      return [electrode_data]
     }
   }
 
@@ -295,25 +363,20 @@ export var Session = (function () {
   }
 
   const computeElectrodePlacement = (targetPts, entryPts) => {
-    const default_lead_model = math.matrix([[0,0,0,1],[0,-1,0,1],[0,0,1,1],[1,0,0,1]]);
-    const target = math.matrix(targetPts);
-    const entry = math.matrix(entryPts);
-    const zDirection = math.subtract(target, entry);
-
-    console.log(target);
-    console.log(entry)
+    const default_lead_model = math.matrix([[0,0,0,1],[0,1,0,1],[0,0,1,1],[1,0,0,1]]);
+    const target = math.matrix(math.dotMultiply(targetPts, [-1, -1, 1]));
+    const entry = math.matrix(math.dotMultiply(entryPts, [-1, -1, 1]));
+    const zDirection = math.subtract(entry, target);
 
     const K = math.divide(zDirection, math.norm(zDirection));
     const temp = math.divide(math.subtract(math.add(target, 5), target), math.norm(math.subtract(math.add(target, 5), target)));
-    const I = math.divide(math.cross(K, temp), math.norm(math.cross(K, temp)));
-    const J = math.divide(math.cross(I, K), math.norm(math.cross(I, K)));
-
+    const I = math.divide(math.subtract(0, math.cross(K, temp)), math.norm(math.subtract(0, math.cross(K, temp))));
+    const J = math.divide(math.subtract(0, math.cross(I, K)), math.norm(math.subtract(0, math.cross(I, K))));
+    
     const template_coordinates = math.matrix([target, math.add(K, target), math.add(J, target), math.add(I, target)]);
     const template_coordinates_matrix = math.resize(template_coordinates, [4,4], 1);
-    const transform_matrix = math.inv(math.multiply(math.inv(default_lead_model), template_coordinates_matrix));
+    const transform_matrix = math.transpose(math.multiply(math.inv(default_lead_model), template_coordinates_matrix));
     
-    console.log(template_coordinates)
-
     const affine_matrix = new THREE.Matrix4();
     affine_matrix.set(...transform_matrix.reshape([16])._data);
     return affine_matrix;
