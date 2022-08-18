@@ -337,9 +337,6 @@ export var Session = (function () {
         volume.windowLow = min;
         volume.windowHigh = max;
 
-        volume.data = math.matrix(Array.from(volume.data));
-        volume.data.reshape(volume.dimensions);
-        
         return [{
           filename: item.filename,
           type: item.type,
