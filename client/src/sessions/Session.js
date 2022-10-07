@@ -2,9 +2,6 @@ import axios from "axios";
 import * as THREE from "three";
 import cookie from "react-cookies";
 import * as math from "mathjs";
-import { Volume } from "three/examples/jsm/misc/Volume";
-import { VolumeSlice } from "three/examples/jsm/misc/VolumeSlice";
-import { Matrix3 } from "three";
 
 function rgbaToHex (r,g,b,a) {
   var outParts = [
@@ -34,15 +31,15 @@ function parseBinarySTL(data) {
   var colorString = "#FFFFFF";
 
   for ( let index = 0; index < 80 - 10; index ++ ) {
-    if ( ( reader.getUint32( index, false ) == 0x434F4C4F /*COLO*/ ) &&
-      ( reader.getUint8( index + 4 ) == 0x52 /*'R'*/ ) &&
-      ( reader.getUint8( index + 5 ) == 0x3D /*'='*/ ) ) {
+    if ( ( reader.getUint32( index, false ) === 0x434F4C4F /*COLO*/ ) &&
+      ( reader.getUint8( index + 4 ) === 0x52 /*'R'*/ ) &&
+      ( reader.getUint8( index + 5 ) === 0x3D /*'='*/ ) ) {
       
         colorString = rgbaToHex(reader.getUint8( index + 6 ), reader.getUint8( index + 7 ), reader.getUint8( index + 8 ));
         defaultR = reader.getUint8( index + 6 ) / 255;
         defaultG = reader.getUint8( index + 7 ) / 255;
         defaultB = reader.getUint8( index + 8 ) / 255;
-        alpha = reader.getUint8( index + 9 ) / 255;
+        alpha = reader.getUint8( index + 9 ) / 255; // Currently not used
     }
   }
 
@@ -116,6 +113,10 @@ export var Session = (function () {
     serverAddress = url;
   };
 
+  const getServer = () => {
+    return serverAddress;
+  };
+
   const syncSession = () => {
     query("/server/configurations").then((response) => {
       configurations = response.data;
@@ -128,7 +129,7 @@ export var Session = (function () {
         Username: username,
         Password: password
       });
-      if (response.status == 200) return response.data;
+      if (response.status === 200) return response.data;
     } catch (error) {
 
     }
@@ -142,7 +143,7 @@ export var Session = (function () {
   const verifyAccess = async () => {
     try {
       const response = await query("/server/verify"); 
-      if (response.status == 200) return response.data;
+      if (response.status === 200) return response.data;
     } catch (error) {
       return {};
     }
@@ -176,9 +177,9 @@ export var Session = (function () {
 
   const getModels = async (directory, item) => {
     const controlledItems = [];
-    if (item.mode == "single") {
+    if (item.mode === "single") {
       
-      if (item.type == "stl") {
+      if (item.type === "stl") {
         const response = await query("/server/getModel", {
           "Directory": directory,
           "FileName": item.filename,
@@ -197,7 +198,7 @@ export var Session = (function () {
           show: true,
         });
       
-      } else if (item.type == "volume") {
+      } else if (item.type === "volume") {
         const response = await query("/server/getModel", {
           "Directory": directory,
           "FileName": item.filename,
@@ -206,7 +207,7 @@ export var Session = (function () {
         }, {responseType: "arraybuffer"});
         return response.data;
 
-      } else if (item.type == "tracts") {
+      } else if (item.type === "tracts") {
         const response = await query("/server/getModel", {
           "Directory": directory,
           "FileName": item.filename,
@@ -224,7 +225,7 @@ export var Session = (function () {
           show: true,
         });
 
-      } else if (item.type == "points") {
+      } else if (item.type === "points") {
         const response = await query("/server/getModel", {
           "Directory": directory,
           "FileName": item.filename,
@@ -242,7 +243,7 @@ export var Session = (function () {
           show: true,
         });
 
-      } else if (item.type == "electrode") {
+      } else if (item.type === "electrode") {
         const response = await query("/server/getModel", {
           "Directory": directory,
           "FileName": item.filename,
@@ -259,7 +260,7 @@ export var Session = (function () {
       }
       return controlledItems;
 
-    } else if (item.mode == "multiple") {
+    } else if (item.mode === "multiple") {
 
       if (item.type === "electrode") {
         const pagination = await query("/server/getModel", {
@@ -399,6 +400,7 @@ export var Session = (function () {
 
   return {
     setServer: setServer,
+    getServer: getServer,
     authenticate: authenticate,
     logout: logout,
     verifyAccess: verifyAccess,

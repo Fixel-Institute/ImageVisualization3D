@@ -3,13 +3,11 @@ import React from "react";
 import {
   BoxGeometry,
   Mesh,
-  Texture,
   LinearFilter,
   DoubleSide,
   MeshBasicMaterial,
   ClampToEdgeWrapping,
   Vector3,
-  DataArrayTexture,
   DataTexture,
   Matrix4,
 } from "three";
@@ -24,18 +22,18 @@ function extractSlice(data, dimension, slice_index, axis) {
   switch (axis) {
     case 'x': {
       const slice_data = new Array(dimension[1]*dimension[2]);
-      for (var i = 0; i < dimension[1]; i++) {
-        for (var j = 0; j < dimension[2]; j++) {
+      for (let i = 0; i < dimension[1]; i++) {
+        for (let j = 0; j < dimension[2]; j++) {
           slice_data[i + j*dimension[1]] = data[slice_index*dimension[1]*dimension[2] + i*dimension[2] + j];
-        } 
+        }
       }
       return slice_data;
     }
 
     case 'y': {
       const slice_data = new Array(dimension[0]*dimension[2]);
-      for (var i = 0; i < dimension[0]; i++) {
-        for (var j = 0; j < dimension[2]; j++) {
+      for (let i = 0; i < dimension[0]; i++) {
+        for (let j = 0; j < dimension[2]; j++) {
           slice_data[i + j*dimension[0]] = data[i*dimension[1]*dimension[2] + slice_index*dimension[2] + j];
         } 
       }
@@ -45,8 +43,8 @@ function extractSlice(data, dimension, slice_index, axis) {
     case 'z':
     default: {
       const slice_data = new Array(dimension[0]*dimension[1]);
-      for (var i = 0; i < dimension[0]; i++) {
-        for (var j = 0; j < dimension[1]; j++) {
+      for (let i = 0; i < dimension[0]; i++) {
+        for (let j = 0; j < dimension[1]; j++) {
           slice_data[i + j*dimension[0]] = data[i*dimension[1]*dimension[2] + j*dimension[2] + slice_index];
         } 
       }
@@ -82,23 +80,15 @@ function createTexture(data, width, height, clim) {
 }
 
 function getPointerCoordinate(mouse, camera) {
-  var vec = new Vector3(); // create once and reuse
-  var pos = new Vector3(); // create once and reuse
-
+  var vec = new Vector3();
   vec.set(mouse.x, mouse.y, 0.5);
   vec.unproject( camera );
-  /*
-  console.log(vec);
-  vec.sub( camera.position ).normalize();
-  var distance = - camera.position.z / vec.z;
-  pos.copy( camera.position ).add( vec.multiplyScalar( distance ) );
-  */
   return vec;
 }
 
 function VolumetricSlice({data, axis, matrix, cameraLock}) {
   const index = data.axisOrder.indexOf(axis);
-  const { camera, mouse, viewport } = useThree();
+  const { camera, mouse } = useThree();
 
   const [sliceIndex, setSliceIndex] = React.useState(Math.floor(data.dimensions[index]/2));
   const [slice, setSlice] = React.useState(null);
@@ -130,18 +120,18 @@ function VolumetricSlice({data, axis, matrix, cameraLock}) {
     const mouseMove = (event) => {
       const pos = getPointerCoordinate(mouse, camera);
       const scale = math.norm(math.matrix([camera.position.x, camera.position.y, camera.position.z]));
-      if (axis == "x") {
-        const newSlice = Math.floor(sliceIndex + (pos["x"]-startCoordinate["x"]) * scale);
+      if (axis === "x") {
+        let newSlice = Math.floor(sliceIndex + (pos["x"]-startCoordinate["x"]) * scale);
         if (newSlice < 0) newSlice = 0;
         if (newSlice >= data.dimensions[index]) newSlice = data.dimensions[index]-1;
         setSliceIndex(newSlice);
-      } else if (axis == "y") {
-        const newSlice = Math.floor(sliceIndex + (pos["z"]-startCoordinate["z"]) * scale);
+      } else if (axis === "y") {
+        let newSlice = Math.floor(sliceIndex + (pos["z"]-startCoordinate["z"]) * scale);
         if (newSlice < 0) newSlice = 0;
         if (newSlice >= data.dimensions[index]) newSlice = data.dimensions[index]-1;
         setSliceIndex(newSlice);
-      } else if (axis == "z") {
-        const newSlice = Math.floor(sliceIndex + (pos["y"]-startCoordinate["y"]) * scale);
+      } else if (axis === "z") {
+        let newSlice = Math.floor(sliceIndex + (pos["y"]-startCoordinate["y"]) * scale);
         if (newSlice < 0) newSlice = 0;
         if (newSlice >= data.dimensions[index]) newSlice = data.dimensions[index]-1;
         setSliceIndex(newSlice);
@@ -158,7 +148,7 @@ function VolumetricSlice({data, axis, matrix, cameraLock}) {
 
   if (!slice) return null;
 
-  if (axis == "z") {
+  if (axis === "z") {
     const offset_matrix = new Matrix4();
     offset_matrix.makeTranslation(-data.xRange._data[Math.floor(data.dimensions[0]/2)], -data.yRange._data[Math.floor(data.dimensions[1]/2)], -data.zRange._data[data.dimensions[2]-1]);
 
@@ -174,7 +164,7 @@ function VolumetricSlice({data, axis, matrix, cameraLock}) {
       <meshBasicMaterial map={canvasMap} side={DoubleSide} transparent={true}/>
     </mesh>;
 
-  } else if (axis == "y") {
+  } else if (axis === "y") {
     const offset_matrix = new Matrix4();
     offset_matrix.makeTranslation(-data.xRange._data[Math.floor(data.dimensions[0]/2)], 0, -data.zRange._data[Math.floor(data.dimensions[2]/2)]);
 
@@ -190,7 +180,7 @@ function VolumetricSlice({data, axis, matrix, cameraLock}) {
       <meshBasicMaterial map={canvasMap} side={DoubleSide} transparent={true}/>
     </mesh>;
 
-  } else if (axis == "x") {
+  } else if (axis === "x") {
     const offset_matrix = new Matrix4();
     offset_matrix.makeTranslation(0, -data.yRange._data[Math.floor(data.dimensions[1]/2)], -data.zRange._data[Math.floor(data.dimensions[2]/2)]);
 

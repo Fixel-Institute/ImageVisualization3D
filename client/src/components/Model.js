@@ -1,26 +1,12 @@
 import React from "react";
-import * as THREE from "three";
-import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
-
-import { Session } from "sessions/Session.js";
 
 function Model({geometry, material, matrix}) {
-  /*
-  const objectRef = React.useRef();
-  React.useEffect(() => { 
-    if (objectRef.current) {
-      //objectRef.current.matrixAutoUpdate = false;
-      //objectRef.current.matrix.set(...matrix);
-    }
-  }, [objectRef]);
-  */
- 
   return <mesh castShadow matrixAutoUpdate={false} matrix={matrix}>
     <bufferGeometry attach="geometry" attributes={{
       position: geometry.position,
       normal: geometry.normal
     }}/>
-    <meshPhongMaterial transparent opacity={material.opacity} color={material.color} specular={material.specular} shininess={material.shininess} />
+    <meshPhongMaterial transparent opacity={material.opacity} depthWrite={material.opacity > 0.9} color={material.color} specular={material.specular} shininess={material.shininess} />
   </mesh>
 };
 

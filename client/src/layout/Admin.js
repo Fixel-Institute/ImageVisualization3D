@@ -38,6 +38,10 @@ const AdminLayout = () => {
       if (Object.keys(result).length === 0) {
         navigate("/auth", {replace: true});
       }
+      
+      if (!result.isAdmin) {
+        navigate("/auth", {replace: true});
+      }
       dispatch({type: "user", value: result});
     });
   }, []);
