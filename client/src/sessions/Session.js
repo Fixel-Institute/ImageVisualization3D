@@ -106,7 +106,7 @@ function identityMatrix() {
 }
 
 export var Session = (function () {
-  var serverAddress = "";
+  var serverAddress = window.location.protocol + "//" + window.location.host;
   var configurations = {}
 
   const setServer = (url) => {
