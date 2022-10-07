@@ -222,6 +222,7 @@ function Admin({menuOpen, setMenuOpen}) {
           acceptedFiles={[".stl", ".pts", ".edge"]}
           onChange={fileChanged} 
           useChipsForPreview={true}
+          maxFileSize={100000000}
           filesLimit={10} 
         />
       </DialogContent>
