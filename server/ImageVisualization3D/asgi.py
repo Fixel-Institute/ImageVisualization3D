@@ -8,11 +8,18 @@ https://docs.djangoproject.com/en/3.2/howto/deployment/asgi/
 """
 
 import os
+import json
+from pathlib import Path
 
 from django.core.asgi import get_asgi_application
 
-os.environ["SERVER_ADDRESS"] = "visualization.jcagle.solutions"
-os.environ["SECRET_KEY"] = "django-unsecure&fdjkshghdfsjaighifdahigf"
+BASE_DIR = Path(__file__).resolve().parent
+if os.path.exists(os.path.join(BASE_DIR, '.env')):
+    with open(os.path.join(BASE_DIR, '.env'), "r") as file:
+        config = json.load(file)
+    for key in config.keys():
+        os.environ[key] = config[key]
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ImageVisualization3D.settings')
 
 application = get_asgi_application()
