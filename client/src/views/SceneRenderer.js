@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import * as THREE from "three";
 
 import { Canvas, useThree } from '@react-three/fiber'
@@ -50,6 +50,7 @@ import CoordinateSystem from "components/CoordinateSystem.js";
 import ShadowLight from "components/ShadowLight.js";
 import VolumetricObject from "components/VolumetricObject.js";
 import Model, { parseBinarySTL } from "components/Model.js";
+import GLBLoader from "components/GLBLoader.js";
 
 import { useVisualizerContext } from "context";
 
@@ -199,7 +200,7 @@ function SceneRenderer() {
     currentPts[index] = event.currentTarget.value;
     setTargetDialog({...targetDialog, [type]: currentPts});
   }
-
+  
   return <>
     <Canvas style={{height: "calc(100vh - 64px)"}}>
       <CameraController cameraLock={cameraLock}/>
@@ -208,6 +209,16 @@ function SceneRenderer() {
       <ShadowLight x={100} y={100} z={100} color={0xffffff} intensity={0.5}/>
       <hemisphereLight args={[0xffffff, 0xffffff, 0.2]} color={0x3385ff} groundColor={0xffc880} position={[0, 100, 0]} />
       <hemisphereLight args={[0xffffff, 0xffffff, 0.2]} color={0x3385ff} groundColor={0xffc880} position={[0, -100, 0]} />
+      {controlItems.map((item) => {
+        if (item.data && item.show) {
+          if (item.type === "glb") {
+            return <Suspense key={item.filename} >
+              <GLBLoader url={item.data}/>
+            </Suspense>
+          }
+        }
+      })}
+
       <group matrixAutoUpdate={false} matrix={worldMatrix}>
         {controlItems.map((item) => {
           if (item.data && item.show) {
@@ -218,6 +229,8 @@ function SceneRenderer() {
                 shininess: 200,
                 opacity: item.opacity
               }} matrix={item.matrix}></Model>
+            } else if (item.type == "glb") {
+              
             } else if (item.type === "electrode") {
               return <group key={item.filename}>
                 {item.data.map((value, index) => {

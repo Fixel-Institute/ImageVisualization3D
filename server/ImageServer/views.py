@@ -1,5 +1,5 @@
 from django.middleware.csrf import get_token
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse
 from django.contrib.auth import authenticate, login, logout
 
 import rest_framework.views as RestViews
@@ -91,6 +91,13 @@ class ListModels(RestViews.APIView):
                     "mode": "single"
                 })
 
+            if file.endswith(".glb"):
+                availableModels.append({
+                    "file": file,
+                    "type": "glb",
+                    "mode": "single"
+                })
+
             elif file.endswith(".pts"):
                 if file.replace(".pts",".edge") in files:
                     availableModels.append({
@@ -160,6 +167,13 @@ def stlReader(session, directory, filename):
 
 class GetModels(RestViews.APIView):
     parser_classes = [RestParsers.JSONParser]
+
+    def get(self, request):
+        directory = request.query_params.get('directory', None)
+        filename = request.query_params.get('filename', None)
+        file_handle = open(BASE_DIR + '/resources/' + directory + '/' + filename, "rb")
+        response = FileResponse(file_handle)
+        return response
 
     def post(self, request):
         if request.data["FileMode"] == "single":

@@ -32,8 +32,7 @@ const AuthLayout = () => {
   const [context, dispatch] = useVisualizerContext();
   const { darkMode, server, user } = context;
 
-  const cacheUrl = Session.getServer();
-  const [serverAddress, setServerAddress] = React.useState({show: false, url: cacheUrl == "" ? window.location.hostname : cacheUrl});
+  const [serverAddress, setServerAddress] = React.useState({show: false, url: Session.getServer() == "" ? window.location.hostname : Session.getServer()});
 
   React.useEffect(() => {
     Session.verifyAccess().then((result) => {
@@ -74,7 +73,7 @@ const AuthLayout = () => {
     
     <Dialog 
       open={serverAddress.show}
-      onClose={() => setServerAddress({...serverAddress, show: false, url: cacheUrl == "" ? window.location.hostname : cacheUrl})}
+      onClose={() => setServerAddress({...serverAddress, show: false, url: Session.getServer() == "" ? window.location.hostname : Session.getServer()})}
       fullWidth
     >
       <Box sx={{

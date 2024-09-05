@@ -3,6 +3,8 @@ import * as THREE from "three";
 import cookie from "react-cookies";
 import * as math from "mathjs";
 
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+
 function rgbaToHex (r,g,b,a) {
   var outParts = [
     r.toString(16),
@@ -198,6 +200,17 @@ export var Session = (function () {
           show: true,
         });
       
+      } else if (item.type === "glb") {
+        controlledItems.push({
+          filename: item.filename,
+          type: item.type,
+          downloaded: true,
+          data: Session.getServer() + "/server/getModel?directory="+directory+"&filename="+item.filename,
+          opacity: 1,
+          matrix: identityMatrix(),
+          show: true,
+        });
+
       } else if (item.type === "volume") {
         const response = await query("/server/getModel", {
           "Directory": directory,

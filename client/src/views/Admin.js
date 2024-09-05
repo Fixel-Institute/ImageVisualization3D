@@ -219,10 +219,10 @@ function Admin({menuOpen, setMenuOpen}) {
         <DropzoneArea 
           dropzoneText={"Drag and Drop Files Here Or Click to Select"} 
           dropzoneClass={"dropzone"}
-          acceptedFiles={[".stl", ".pts", ".edge", ".tck"]}
+          acceptedFiles={[".stl", ".glb", ".pts", ".edge", ".tck"]}
           onChange={fileChanged} 
           useChipsForPreview={true}
-          maxFileSize={100000000}
+          maxFileSize={2000000000}
           filesLimit={10} 
         />
       </DialogContent>
