@@ -27,6 +27,8 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 DEBUG = True
 if DEBUG:
     STATIC_URL = '/static/'
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
     SECURE_SSL_REDIRECT = False
     SECURE_PROXY_SSL_HEADER = ()
 else:
