@@ -204,10 +204,8 @@ export var Session = (function () {
         controlledItems.push({
           filename: item.filename,
           type: item.type,
-          downloaded: true,
+          downloaded: false,
           data: Session.getServer() + "/server/getModel?directory="+directory+"&filename="+item.filename,
-          opacity: 1,
-          matrix: identityMatrix(),
           show: true,
         });
 

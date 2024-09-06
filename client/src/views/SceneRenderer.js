@@ -43,6 +43,7 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import NoPhotographyIcon from '@mui/icons-material/NoPhotography';
 
 import { Session } from "sessions/Session.js";
+import LoadingProgress from "components/LoadingProgress";
 import TransformController from "components/TransformController.js";
 import CameraController from "components/CameraController.js";
 import Tractography from "components/Tractography.js";
@@ -53,10 +54,12 @@ import Model, { parseBinarySTL } from "components/Model.js";
 import GLBLoader from "components/GLBLoader.js";
 
 import { useVisualizerContext } from "context";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
 function SceneRenderer() {
   const ref = React.useRef(null);
 
+  const [alert, setAlert] = React.useState(null);
   const [cameraLock, setCameraLock] = React.useState(false);
   const [worldMatrix, setWorldMatrx] = React.useState(null);
   const [drawer, setDrawer] = React.useState({show: false});
@@ -108,6 +111,7 @@ function SceneRenderer() {
 
   const requestModel = (item) => {
     if (!item.downloaded) {
+      setAlert(<LoadingProgress/>);
       Session.getModels(directory, item).then((data) => {
         if (item.type === "electrode") {
           var electrodeCount = 0;
@@ -117,12 +121,31 @@ function SceneRenderer() {
             }
           }
           data[0].filename += " " + electrodeCount.toString();
+          setControlItems([...controlItems, ...data]);
+          setAlert(null);
+        } else if (item.type === "glb") {
+          const loader = new GLTFLoader();
+          loader.load(data[0].data, (gltf) => {
+            setControlItems([...controlItems, ...gltf.scene.children.map((mesh) => {
+              return { filename: mesh.name, type: "glb", downloaded: true, data: mesh, show: true, };
+            })]);
+            setAlert(null);
+          }, (xhr) => {
+            setAlert(<LoadingProgress text={"Loaded " + (xhr.loaded/1000000).toFixed(2) + " MB"}/>);
+            console.log()
+          }, (error) => {
+            console.log(error);
+          })
         } else {
           const index = checkItemIndex(item);    
           availableItems[index].downloaded = true;
           setAvailableItems(availableItems);
+          setControlItems([...controlItems, ...data]);
+          setAlert(null);
         }
-        setControlItems([...controlItems, ...data]);
+      }).catch((error) => {
+        console.log(error);
+        setAlert(null);
       });
     } else {
       for (var i in controlItems) {
@@ -202,6 +225,7 @@ function SceneRenderer() {
   }
   
   return <>
+    {alert}
     <Canvas style={{height: "calc(100vh - 64px)"}}>
       <CameraController cameraLock={cameraLock}/>
       <CoordinateSystem length={50} origin={[300, -300, -150]}/>
@@ -212,9 +236,7 @@ function SceneRenderer() {
       {controlItems.map((item) => {
         if (item.data && item.show) {
           if (item.type === "glb") {
-            return <Suspense key={item.filename} >
-              <GLBLoader url={item.data}/>
-            </Suspense>
+            return <primitive key={item.filename} object={item.data} />
           }
         }
       })}
@@ -457,7 +479,6 @@ function SceneRenderer() {
         </Box>
       </Drawer>
     </Box>
-
   </>
 }
 
