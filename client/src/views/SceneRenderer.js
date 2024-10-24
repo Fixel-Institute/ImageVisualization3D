@@ -1,4 +1,5 @@
 import React, { Suspense } from "react";
+import { useParams } from "react-router-dom";
 import * as THREE from "three";
 
 import { Canvas, useThree } from '@react-three/fiber'
@@ -56,8 +57,10 @@ import GLBLoader from "components/GLBLoader.js";
 import { useVisualizerContext } from "context";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
-function SceneRenderer() {
+function SceneRenderer({match}) {
   const ref = React.useRef(null);
+
+  let { directoryId, objectId } = useParams(); 
 
   const [alert, setAlert] = React.useState(null);
   const [cameraLock, setCameraLock] = React.useState(false);
@@ -90,14 +93,19 @@ function SceneRenderer() {
     }).then((allItems) => {
       setAvailableItems(allItems);
     });
-  }, [directory]);
+
+    if (directory == directoryId && objectId) {
+      requestModel({filename: objectId, type: 'glb', mode: 'single', data: null})
+    }
+  }, [directory, objectId]);
 
   React.useEffect(() => {
     Session.listDirectories().then((allDirectories) => {
       setDirectoryList(allDirectories);
-      if (allDirectories.length > 0) setDirectory(allDirectories[0].value);
+      if (directoryId && allDirectories.includes(directoryId)) setDirectory(directoryId);
+      else if (allDirectories.length > 0) setDirectory(allDirectories[0].value);
     });
-  }, [server]);
+  }, [server, directoryId]);
 
   const checkServerObjects = async () => {
     setAddItemModal({...addItemModal, show: true});

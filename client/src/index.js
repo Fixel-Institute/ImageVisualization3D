@@ -22,6 +22,7 @@ root.render(
             <Route path="/auth/*" element={<AuthLayout />}/>
             <Route path="/admin/*" element={<AdminLayout />}/>
             <Route index path="/index" element={<ImageViewerLayout />}/>
+            <Route path="/view/:directoryId/:objectId" element={<ImageViewerLayout />}/>
             <Route path="/*" element={<Navigate to="/index" replace />}/>
           </Routes>
         </BrowserRouter>
