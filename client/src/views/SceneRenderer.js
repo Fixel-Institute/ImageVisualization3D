@@ -42,6 +42,7 @@ import AddCircleIcon from '@mui/icons-material/AddCircle';
 import LineWeightIcon from '@mui/icons-material/LineWeight';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import NoPhotographyIcon from '@mui/icons-material/NoPhotography';
+import ThreeDRotationIcon from '@mui/icons-material/ThreeDRotation';
 
 import { Session } from "sessions/Session.js";
 import LoadingProgress from "components/LoadingProgress";
@@ -53,6 +54,7 @@ import ShadowLight from "components/ShadowLight.js";
 import VolumetricObject from "components/VolumetricObject.js";
 import Model, { parseBinarySTL } from "components/Model.js";
 import GLBLoader from "components/GLBLoader.js";
+import XRController from "./XRController";
 
 import { useVisualizerContext } from "context";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
@@ -63,6 +65,7 @@ function SceneRenderer({match}) {
   let { directoryId, objectId } = useParams(); 
 
   const [alert, setAlert] = React.useState(null);
+  const [enableVR, setEnableVR] = React.useState(false);
   const [cameraLock, setCameraLock] = React.useState(false);
   const [worldMatrix, setWorldMatrx] = React.useState(null);
   const [drawer, setDrawer] = React.useState({show: false});
@@ -80,12 +83,20 @@ function SceneRenderer({match}) {
 
   React.useEffect(() => {
     const matrix = new THREE.Matrix4();
-    matrix.set(1, 0, 0, 0,
-               0, 0, 1, 0,
-               0, -1, 0, 0,
-               0, 0, 0, 1);
-    setWorldMatrx(matrix);
-  }, []);
+    if (enableVR) {
+      matrix.set(1, 0, 0, 0,
+                 0, 0, 1, 0,
+                 0, -1, 0, 0,
+                 0, 0, 0, 100);
+      setWorldMatrx(matrix);
+    } else {
+      matrix.set(1, 0, 0, 0,
+                 0, 0, 1, 0,
+                 0, -1, 0, 0,
+                 0, 0, 0, 1);
+      setWorldMatrx(matrix);
+      }
+  }, [enableVR]);
 
   React.useEffect(() => {
     Session.listModels({
@@ -235,16 +246,17 @@ function SceneRenderer({match}) {
   return <>
     {alert}
     <Canvas style={{height: "calc(100vh - 64px)"}}>
+      <XRController enabled={enableVR} />
       <CameraController cameraLock={cameraLock}/>
       <CoordinateSystem length={50} origin={[300, -300, -150]}/>
-      <ShadowLight x={-100} y={-100} z={-100} color={0xffffff} intensity={0.5}/>
-      <ShadowLight x={100} y={100} z={100} color={0xffffff} intensity={0.5}/>
-      <hemisphereLight args={[0xffffff, 0xffffff, 0.2]} color={0x3385ff} groundColor={0xffc880} position={[0, 100, 0]} />
-      <hemisphereLight args={[0xffffff, 0xffffff, 0.2]} color={0x3385ff} groundColor={0xffc880} position={[0, -100, 0]} />
+      <ShadowLight x={-100} y={-100} z={-100} color={0xffffff} intensity={0.8}/>
+      <ShadowLight x={100} y={100} z={100} color={0xffffff} intensity={0.8}/>
+      <hemisphereLight args={[0xffffff, 0xffffff, 0.8]} color={0x3385ff} groundColor={0xffc880} position={[0, 100, 0]} />
+      <hemisphereLight args={[0xffffff, 0xffffff, 0.8]} color={0x3385ff} groundColor={0xffc880} position={[0, -100, 0]} />
       {controlItems.map((item) => {
         if (item.data && item.show) {
           if (item.type === "glb") {
-            return <primitive key={item.filename} object={item.data} />
+            return <primitive key={item.filename} object={item.data} scale={enableVR ? 0.01 : 1} />
           }
         }
       })}
@@ -375,9 +387,12 @@ function SceneRenderer({match}) {
       </Box>
     </Dialog>
     
-    <Box position={"absolute"} sx={{left: 20, bottom: 20}}>
-      <Fab size="large" color="secondary" onClick={() => setCameraLock(!cameraLock)}>
+    <Box position={"absolute"} display={"flex"} flexDirection={"column"} sx={{left: 20, bottom: 20}}>
+      <Fab size="large" color="secondary" onClick={() => setCameraLock(!cameraLock)} sx={{marginBottom: 5}}>
         {cameraLock ? <NoPhotographyIcon/> : <PhotoCameraIcon/>}
+      </Fab>
+      <Fab size="large" color="secondary" onClick={() => setEnableVR(!enableVR)}>
+        {<ThreeDRotationIcon/>}
       </Fab>
     </Box>
 
