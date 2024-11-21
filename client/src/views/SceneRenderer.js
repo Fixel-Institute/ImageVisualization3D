@@ -117,7 +117,7 @@ function SceneRenderer({match}) {
   React.useEffect(() => {
     Session.listDirectories().then((allDirectories) => {
       setDirectoryList(allDirectories);
-      if (directoryId && allDirectories.includes(directoryId)) setDirectory(directoryId);
+      if (directoryId && allDirectories.map((a) => a.value).includes(directoryId)) setDirectory(directoryId);
       else if (allDirectories.length > 0) setDirectory(allDirectories[0].value);
     });
   }, [server, directoryId]);
@@ -308,7 +308,7 @@ function SceneRenderer({match}) {
           } else if (item.Type === "HemisphereLight") {
             return <hemisphereLight key={item.Name} args={[new THREE.Color(item.SkyColor.r, item.SkyColor.g, item.SkyColor.b), new THREE.Color(item.GroundColor.r, item.GroundColor.g, item.GroundColor.b), item.Intensity]}/>
           } else if (item.Type === "DirectionalLight") {
-            return <directionalLight key={item.Name} args={[new THREE.Color(item.Color.r, item.Color.g, item.Color.b), item.Intensity]} position={item.Position} shadow={item.Shadow}/>
+            return <directionalLight key={item.Name} args={[new THREE.Color(item.Color.r, item.Color.g, item.Color.b), item.Intensity]} position={item.Position} castShadow={item.Shadow}/>
           } else if (item.Type === "PointLight") {
             return <pointLight key={item.Name} args={[new THREE.Color(item.Color.r, item.Color.g, item.Color.b), item.Intensity]} position={item.Position} distance={item.Distance} />
           } else if (item.Type === "SpotLight") {
