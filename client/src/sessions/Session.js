@@ -98,7 +98,7 @@ function parseBinarySTL(data) {
   };
 }
 
-function identityMatrix() {
+export function identityMatrix() {
   const matrix = new THREE.Matrix4();
   matrix.set(1, 0, 0, 0,
              0, 1, 0, 0,
@@ -208,6 +208,15 @@ export var Session = (function () {
           data: Session.getServer() + "/server/getModel?directory="+directory+"&filename="+item.filename,
           show: true,
         });
+
+      } else if (item.type === "json") {
+        const response = await query("/server/getModel", {
+          "Directory": directory,
+          "FileName": item.filename,
+          "FileMode": item.mode,
+          "FileType": item.type
+        });
+        return response.data;
 
       } else if (item.type === "volume") {
         const response = await query("/server/getModel", {

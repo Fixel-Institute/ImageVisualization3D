@@ -214,6 +214,10 @@ class GetModels(RestViews.APIView):
                     "Content-Type": "application/octet-stream"
                 })
 
+            elif request.data["FileType"] == "json":
+                file_data = json.load(open(BASE_DIR + '/resources/' + request.data["Directory"] + "/" + request.data["FileName"], "r"))
+                return Response(status=200, data=file_data)
+
             elif request.data["FileType"] == "volume":
                 nii = nib.load(BASE_DIR + '/resources/' + request.data["Directory"] + '/' + request.data["FileName"])
                 raw_data = nii.get_fdata().astype(np.uint16)

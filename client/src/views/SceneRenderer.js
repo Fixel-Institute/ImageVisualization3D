@@ -44,7 +44,7 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import NoPhotographyIcon from '@mui/icons-material/NoPhotography';
 import ThreeDRotationIcon from '@mui/icons-material/ThreeDRotation';
 
-import { Session } from "sessions/Session.js";
+import { Session, identityMatrix } from "sessions/Session.js";
 import LoadingProgress from "components/LoadingProgress";
 import TransformController from "components/TransformController.js";
 import CameraController from "components/CameraController.js";
@@ -106,7 +106,11 @@ function SceneRenderer({match}) {
     });
 
     if (directory == directoryId && objectId) {
-      requestModel({filename: objectId, type: 'glb', mode: 'single', data: null})
+      if (objectId.endsWith(".glb")) {
+        requestModel({filename: objectId, type: 'glb', mode: 'single', data: null})
+      } else if (objectId.endsWith(".json")) {
+        requestDescriptor({filename: objectId, type: 'json', mode: 'single', data: null})
+      }
     }
   }, [directory, objectId]);
 
@@ -128,10 +132,44 @@ function SceneRenderer({match}) {
     }
   }
 
-  const requestModel = (item) => {
+  const requestDescriptor = (item) => {
+    Session.getModels(directory, item).then(async (data) => {
+      if (data.Background == "Dark") {
+        dispatch({type: "darkMode", value: true});
+      } else {
+        dispatch({type: "darkMode", value: false});
+      }
+
+      setControlItems((controlItems) => [...controlItems, ...data.Lights.map((a) => {
+        return {
+          filename: a.Name,
+          type: a.Type,
+          downloaded: true,
+          ...a,
+          matrix: identityMatrix(),
+          light: true,
+          show: true,
+        }
+      })])
+
+      for (let i in data.Models) {
+        if (data.Models[i].endsWith("glb")) {
+          await requestModel({
+            mode: 'single',
+            filename: data.Models[i],
+            type: "glb",
+            data: null
+          })
+        }
+      }
+    })
+  }
+
+  const requestModel = async (item) => {
     if (!item.downloaded) {
       setAlert(<LoadingProgress/>);
-      Session.getModels(directory, item).then((data) => {
+      try {
+        const data = await Session.getModels(directory, item);
         if (item.type === "electrode") {
           var electrodeCount = 0;
           for (var i in controlItems) {
@@ -140,13 +178,13 @@ function SceneRenderer({match}) {
             }
           }
           data[0].filename += " " + electrodeCount.toString();
-          setControlItems([...controlItems, ...data]);
+          setControlItems((controlItems) => [...controlItems, ...data]);
           setAlert(null);
         } else if (item.type === "glb") {
           const loader = new GLTFLoader();
           loader.load(data[0].data, (gltf) => {
-            setControlItems([...controlItems, ...gltf.scene.children.map((mesh) => {
-              return { filename: mesh.name, type: "glb", downloaded: true, data: mesh, show: true, };
+            setControlItems((controlItems) => [...controlItems, ...gltf.scene.children.map((mesh) => {
+              return { filename: mesh.name, type: "glb", downloaded: true, data: mesh, show: true, isMesh: mesh.isMesh };
             })]);
             setAlert(null);
           }, (xhr) => {
@@ -159,13 +197,13 @@ function SceneRenderer({match}) {
           const index = checkItemIndex(item);    
           availableItems[index].downloaded = true;
           setAvailableItems(availableItems);
-          setControlItems([...controlItems, ...data]);
+          setControlItems((controlItems) => [...controlItems, ...data]);
           setAlert(null);
         }
-      }).catch((error) => {
+      } catch (error) {
         console.log(error);
         setAlert(null);
-      });
+      };
     } else {
       for (var i in controlItems) {
         if (controlItems[i].filename == item.filename) {
@@ -242,21 +280,39 @@ function SceneRenderer({match}) {
     currentPts[index] = event.currentTarget.value;
     setTargetDialog({...targetDialog, [type]: currentPts});
   }
-  
+
   return <>
     {alert}
     <Canvas style={{height: "calc(100vh - 64px)"}}>
       <XRController enabled={enableVR} />
       <CameraController cameraLock={cameraLock}/>
       <CoordinateSystem length={50} origin={[300, -300, -150]}/>
-      <ShadowLight x={-100} y={-100} z={-100} color={0xffffff} intensity={0.8}/>
-      <ShadowLight x={100} y={100} z={100} color={0xffffff} intensity={0.8}/>
-      <hemisphereLight args={[0xffffff, 0xffffff, 0.8]} color={0x3385ff} groundColor={0xffc880} position={[0, 100, 0]} />
-      <hemisphereLight args={[0xffffff, 0xffffff, 0.8]} color={0x3385ff} groundColor={0xffc880} position={[0, -100, 0]} />
+
+      {controlItems.filter((a) => a.light).length == 0 ? [
+        <ShadowLight key={"shadow1"} x={-100} y={-100} z={-100} color={0xffffff} intensity={0.8}/>,
+        <ShadowLight key={"shadow2"} x={100} y={100} z={100} color={0xffffff} intensity={0.8}/>,
+        <hemisphereLight key={"hemisphere1"} args={[0xffffff, 0xffffff, 0.8]} color={0x3385ff} groundColor={0xffc880} position={[0, 100, 0]} />,
+        <hemisphereLight key={"hemisphere2"} args={[0xffffff, 0xffffff, 0.8]} color={0x3385ff} groundColor={0xffc880} position={[0, -100, 0]} />,
+      ] : null}
+      
       {controlItems.map((item) => {
-        if (item.data && item.show) {
+        if ((item.data || item.light) && item.show) {
           if (item.type === "glb") {
-            return <primitive key={item.filename} object={item.data} scale={enableVR ? 0.01 : 1} />
+            if (item.isMesh) {
+              return <primitive key={item.filename} object={item.data} scale={enableVR ? 0.01 : 1} />
+            } else {
+              return <ShadowLight key={item.filename} x={item.data.position.x} y={item.data.position.y} z={item.data.position.z} color={0xffffff} intensity={0.8}/>
+            }
+          } else if (item.Type === "AmbientLight") {
+            return <ambientLight key={item.Name} args={[new THREE.Color(item.Color.r, item.Color.g, item.Color.b), item.Intensity]} />
+          } else if (item.Type === "HemisphereLight") {
+            return <hemisphereLight key={item.Name} args={[new THREE.Color(item.SkyColor.r, item.SkyColor.g, item.SkyColor.b), new THREE.Color(item.GroundColor.r, item.GroundColor.g, item.GroundColor.b), item.Intensity]}/>
+          } else if (item.Type === "DirectionalLight") {
+            return <directionalLight key={item.Name} args={[new THREE.Color(item.Color.r, item.Color.g, item.Color.b), item.Intensity]} position={item.Position} shadow={item.Shadow}/>
+          } else if (item.Type === "PointLight") {
+            return <pointLight key={item.Name} args={[new THREE.Color(item.Color.r, item.Color.g, item.Color.b), item.Intensity]} position={item.Position} distance={item.Distance} />
+          } else if (item.Type === "SpotLight") {
+            return <spotLight key={item.Name} args={[new THREE.Color(item.Color.r, item.Color.g, item.Color.b), item.Intensity]} position={item.Position} distance={item.Distance} />
           }
         }
       })}
