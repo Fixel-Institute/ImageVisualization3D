@@ -91,11 +91,18 @@ class ListModels(RestViews.APIView):
                     "mode": "single"
                 })
 
-            if file.endswith(".glb"):
+            elif file.endswith(".glb"):
                 availableModels.append({
                     "file": file,
                     "type": "glb",
                     "mode": "single"
+                })
+
+            elif file.endswith(".json"):
+                availableModels.append({
+                    "file": file,
+                    "type": "json",
+                    "mode": "descriptor"
                 })
 
             elif file.endswith(".pts"):
