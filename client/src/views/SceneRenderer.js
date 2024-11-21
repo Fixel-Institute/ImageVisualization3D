@@ -58,6 +58,7 @@ import XRController from "./XRController";
 
 import { useVisualizerContext } from "context";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { Lightbulb, LightbulbCircleOutlined } from "@mui/icons-material";
 
 function SceneRenderer({match}) {
   const ref = React.useRef(null);
@@ -69,10 +70,12 @@ function SceneRenderer({match}) {
   const [cameraLock, setCameraLock] = React.useState(false);
   const [worldMatrix, setWorldMatrx] = React.useState(null);
   const [drawer, setDrawer] = React.useState({show: false});
+  const [lightDrawer, setLightDrawer] = React.useState({show: false});
   const [directory, setDirectory] = React.useState("");
   const [directoryList, setDirectoryList] = React.useState([]);
   
   const [targetDialog, setTargetDialog] = React.useState({show: false, filename: "", targetPts: [0,0,0], entryPts: [0,0,0]});
+  const [lightPosition, setLightPosition] = React.useState({show: false, filename: "", position: [0,0,0], target: [0,0,0]});
   const [addItemModal, setAddItemModal] = React.useState({show: false});
   const [popup, setPopupState] = React.useState({item: ""});
   const [availableItems, setAvailableItems] = React.useState([]);
@@ -223,6 +226,25 @@ function SceneRenderer({match}) {
     for (var i in controlItems) {
       if (controlItems[i].filename == filename) {
         controlItems[i].opacity = event.target.value;
+      }
+    }
+    setControlItems([...controlItems]);
+  }
+
+  const updateLightIntensity = (filename, event) => {
+    for (var i in controlItems) {
+      if (controlItems[i].Name == filename) {
+        controlItems[i].Intensity = event.target.value;
+      }
+    }
+    setControlItems([...controlItems]);
+  }
+
+  const updateLightPosition = () => {
+    for (var i in controlItems) {
+      if (controlItems[i].Name == lightPosition.filename) {
+        controlItems[i].Position = lightPosition.position;
+        controlItems[i].Target = lightPosition.target;
       }
     }
     setControlItems([...controlItems]);
@@ -443,8 +465,57 @@ function SceneRenderer({match}) {
       </Box>
     </Dialog>
     
+    <Dialog 
+      open={lightPosition.show}
+      onClose={() => setLightPosition({...lightPosition, show: false})}
+      fullWidth
+    >
+      <Box sx={{
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        boxShadow: 24,
+        p: 4,
+      }}>
+        <Box>
+          <Typography component="h2" fontSize={24} fontWeight={"700"}>
+            Edit Light Position
+          </Typography>
+          <Grid container spacing={3} sx={{paddingTop: 3}}>
+            <Grid item xs={12} sm={4}>
+              <TextField value={lightPosition.position[0]} onChange={(event) => setLightPosition({...lightPosition, position: [event.target.value, lightPosition.position[1], lightPosition.position[2]]})} label={"Positin LT"}/>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField value={lightPosition.position[1]} onChange={(event) => setLightPosition({...lightPosition, position: [lightPosition.position[0], event.target.value, lightPosition.position[2]]})} label={"Positin AP"}/>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField value={lightPosition.position[2]} onChange={(event) => setLightPosition({...lightPosition, position: [lightPosition.position[0], lightPosition.position[1], event.target.value]})} label={"Positin AX"}/>
+            </Grid>
+          </Grid>
+        </Box>
+        {false ? (
+        <Box marginTop={3} marginBottom={3}>
+          <Typography component="h2" fontSize={24} fontWeight={"700"}>
+            Edit Light Target Coordinate
+          </Typography>
+          <Grid container spacing={3} sx={{paddingTop: 3}}>
+            <Grid item xs={12} sm={4}>
+              <TextField value={lightPosition.target[0]} onChange={(event) => setTargetDialogPoitns("entryPts", 0, event)} label={"Entry LT"}/>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField value={lightPosition.target[1]} onChange={(event) => setTargetDialogPoitns("entryPts", 1, event)} label={"Entry AP"}/>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField value={lightPosition.target[2]} onChange={(event) => setTargetDialogPoitns("entryPts", 2, event)} label={"Entry AX"}/>
+            </Grid>
+          </Grid>
+        </Box>
+        ) : null}
+        <Button variant="contained" fullWidth onClick={() => updateLightPosition()}> {"Update Electrode"} </Button>
+      </Box>
+    </Dialog>
+    
     <Box position={"absolute"} display={"flex"} flexDirection={"column"} sx={{left: 20, bottom: 20}}>
-      <Fab size="large" color="secondary" onClick={() => setCameraLock(!cameraLock)} sx={{marginBottom: 5}}>
+      <Fab size="large" color="secondary" onClick={() => setCameraLock(!cameraLock)} sx={{marginBottom: 2}}>
         {cameraLock ? <NoPhotographyIcon/> : <PhotoCameraIcon/>}
       </Fab>
       <Fab size="large" color="secondary" onClick={() => setEnableVR(!enableVR)}>
@@ -452,10 +523,98 @@ function SceneRenderer({match}) {
       </Fab>
     </Box>
 
-    <Box position={"absolute"} sx={{right: 20, bottom: 20}}>
+    <Box position={"absolute"} display={"flex"} flexDirection={"column"} sx={{right: 20, bottom: 20}}>
+      <Fab size="large" color="info" sx={{marginBottom: 2}} onClick={() => setLightDrawer({...lightDrawer, show: true})}>
+        <Lightbulb/>
+      </Fab>
       <Fab size="large" color="primary" onClick={() => setDrawer({...drawer, show: true})}>
         <SettingIcon/>
       </Fab>
+      <Drawer
+        anchor={"right"}
+        open={lightDrawer.show}
+        onClose={() => setLightDrawer({...lightDrawer, show: false})}
+      >
+        <Box
+          sx={{ width: 350 }}
+          role="presentation"
+        >
+          <List>
+            <Box key={"FolderSelect"} display="flex" flexDirection={"column"} paddingLeft={2} paddingRight={2} paddingTop={1}>
+              <FormControl fullWidth>
+                <InputLabel id="demo-simple-select-label">Directories</InputLabel>
+                <Select
+                  labelId="demo-simple-select-label"
+                  id="demo-simple-select"
+                  value={directory}
+                  label="Directories"
+                  onChange={(event) => setDirectory(event.target.value)}
+                >
+                  {directoryList.map((folder) => {
+                    return <MenuItem key={folder.value} value={folder.value}> {folder.label} </MenuItem>
+                  })}
+                </Select>
+              </FormControl>
+            </Box>
+            {controlItems.filter((a) => a.light).map((item) => (
+              <Box key={item.Name} display="flex" flexDirection={"column"} paddingLeft={3} paddingRight={3} paddingTop={2}>
+                <Typography fontSize={18} fontWeight={700} align="left" sx={{textDecoration: item.show ? "" : "line-through"}} onClick={() => loadData(item)} style={{cursor: "pointer", paddingRight: "10px"}}>
+                  {item.Name}
+                </Typography>
+                {item.type === "AmbientLight" ? (
+                  <Box display="flex" flexDirection={"row"} alignItems={"center"}>
+                    <Icon style={{marginRight: 15}}>
+                      <OpacityIcon />
+                    </Icon>
+                    <Slider value={item.Intensity} step={0.1} min={0} max={5} onChange={(event) => updateLightIntensity(item.Name, event)}></Slider>
+                  </Box>
+                ) : null}
+                {item.type === "HemisphereLight" ? (
+                  <Box display="flex" flexDirection={"row"} alignItems={"center"}>
+                    <Icon style={{marginRight: 15}}>
+                      <OpacityIcon />
+                    </Icon>
+                    <Slider value={item.Intensity} step={0.1} min={0} max={5} onChange={(event) => updateLightIntensity(item.Name, event)}></Slider>
+                  </Box>
+                ) : null}
+                {item.type === "DirectionalLight" ? (
+                  <Box>
+                    <Box display="flex" flexDirection={"row"} alignItems={"center"}>
+                      <Icon style={{marginRight: 15}}>
+                        <OpacityIcon />
+                      </Icon>
+                      <Slider value={item.Intensity} step={0.1} min={0} max={5} onChange={(event) => updateLightIntensity(item.Name, event)}></Slider>
+                      
+                    </Box>
+                    <Box display="flex" flexDirection={"row"} alignItems={"center"} paddingLeft={1} paddingTop={1}>
+                      <Button variant="contained" fullWidth onClick={() => setLightPosition({...lightPosition, filename: item.Name, position: item.Position, target: item.Target, show: true})}>
+                        {"Update Position"}
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : null}
+                {item.type === "PointLight" ? (
+                  <Box>
+                    <Box display="flex" flexDirection={"row"} alignItems={"center"}>
+                      <Icon style={{marginRight: 15}}>
+                        <OpacityIcon />
+                      </Icon>
+                      <Slider value={item.Intensity} step={0.1} min={0} max={5} onChange={(event) => updateLightIntensity(item.Name, event)}></Slider>
+                      
+                    </Box>
+                    <Box display="flex" flexDirection={"row"} alignItems={"center"} paddingLeft={1} paddingTop={1}>
+                      <Button variant="contained" fullWidth onClick={() => setLightPosition({...lightPosition, filename: item.Name, position: item.Position, target: item.Target, show: true})}>
+                        {"Update Position"}
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : null}
+                <Divider sx={{paddingTop: 1}}/>
+              </Box>
+            ))}
+          </List>
+        </Box>
+      </Drawer>
       <Drawer
         anchor={"right"}
         open={drawer.show}
